@@ -236,6 +236,8 @@ and at least one UAC1 DAC become fixtures.
 - The Kotlin layer reads STREAMINFO for rate, depth, channels, total samples, and the
   MD5 signature before playback starts.
 - FLAC metadata parsing for the library is Kotlin-side (see §10), independent of decode.
+- Playback opens the track with `ContentResolver.openFileDescriptor(uri, "r")` and passes
+  a dup'ed descriptor to the native decoder. No temporary file copies.
 - Unsupported: non-stereo, sample rates the DAC lacks, FLAC files with corrupt frames
   (decode error surfaces as a playback error, not silent skipping).
 - **MD5 verification:** the decoder computes MD5 over the exact interleaved PCM it
