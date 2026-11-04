@@ -2,7 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/arm64-v8a/libusb-1.0.so"
+			"path" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/x86_64/libusb-1.0.so"
 		}
 	],
 	"backtrace" : 1,
@@ -28,31 +28,31 @@
 			{
 				"command" : 0,
 				"file" : 0,
-				"line" : 32,
+				"line" : 36,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 50,
+				"line" : 54,
 				"parent" : 0
 			},
 			{
 				"command" : 2,
 				"file" : 0,
-				"line" : 49,
+				"line" : 53,
 				"parent" : 0
 			},
 			{
 				"command" : 3,
 				"file" : 0,
-				"line" : 48,
+				"line" : 52,
 				"parent" : 0
 			},
 			{
 				"command" : 4,
 				"file" : 0,
-				"line" : 44,
+				"line" : 48,
 				"parent" : 0
 			}
 		]

@@ -16,6 +16,7 @@
 #include <thread>
 #include <vector>
 
+#include "feedback.h"
 #include "flac_decoder.h"
 
 namespace {
@@ -67,6 +68,7 @@ struct UsbAudioHandle {
     int sample_rate = 0;
     int sync_type = kSyncAsync;
     int feedback_endpoint = 0;
+    int feedback_max_packet_size = 0;
     int clock_source_id = 0;
     int uac_version = 2;
     int max_packet_size = 0;
@@ -89,7 +91,7 @@ struct UsbAudioHandle {
     std::atomic<uint32_t> underruns{0};
     std::atomic<int> state{kStateIdle};
     std::atomic<int> md5_state{kMd5Unavailable};
-    std::atomic<int> error_code{kFlacOk};
+    std::atomic<int> error_code{kUsbOk};
     int last_error = 0;
 };
 
@@ -97,6 +99,10 @@ struct StreamState {
     UsbAudioHandle* handle = nullptr;
     libusb_transfer* transfers[kUrbCount] = {};
     std::vector<uint8_t> buffers[kUrbCount];
+    libusb_transfer* feedback_transfer = nullptr;
+    std::vector<uint8_t> feedback_buffer;
+    std::atomic<uint32_t> feedback_q16_16{0};
+    std::atomic<int> feedback_in_flight{0};
     bool silence = false;
     uint64_t target_frames = 0;
     std::atomic<uint64_t> frames_done{0};
@@ -111,10 +117,34 @@ struct DeviceLayout {
     int uac_version = 2;
     int max_packet_size = 0;
     int interval = 1;
+    int feedback_max_packet_size = 0;
 };
 
+int map_libusb_error(int err) {
+    switch (err) {
+        case LIBUSB_SUCCESS:
+            return kUsbOk;
+        case LIBUSB_ERROR_NO_DEVICE:
+        case LIBUSB_ERROR_NOT_FOUND:
+            return kUsbErrNoDevice;
+        case LIBUSB_ERROR_BUSY:
+            return kUsbErrBusy;
+        case LIBUSB_ERROR_PIPE:
+            return kUsbErrStall;
+        case LIBUSB_ERROR_OVERFLOW:
+            return kUsbErrOverrun;
+        case LIBUSB_ERROR_INVALID_PARAM:
+            return kUsbErrFormatMismatch;
+        case LIBUSB_ERROR_IO:
+        case LIBUSB_ERROR_TIMEOUT:
+            return kUsbErrIo;
+        default:
+            return kUsbErrProtocol;
+    }
+}
+
 bool discover_layout(libusb_device_handle* device, int streaming_interface, int alt_setting,
-                     int endpoint_address, DeviceLayout* layout) {
+                     int endpoint_address, int feedback_endpoint, DeviceLayout* layout) {
     libusb_config_descriptor* config = nullptr;
     if (libusb_get_active_config_descriptor(libusb_get_device(device), &config) != 0) {
         return false;
@@ -136,14 +166,16 @@ bool discover_layout(libusb_device_handle* device, int streaming_interface, int 
             }
             for (int k = 0; k < alt.bNumEndpoints; ++k) {
                 const libusb_endpoint_descriptor& ep = alt.endpoint[k];
-                if (ep.bEndpointAddress != endpoint_address) {
-                    continue;
-                }
                 const int packet = ep.wMaxPacketSize & 0x7FF;
                 const int mult = 1 + ((ep.wMaxPacketSize >> 11) & 0x3);
-                layout->max_packet_size = packet * mult;
-                layout->interval = std::max(1, static_cast<int>(ep.bInterval));
-                found_endpoint = true;
+                if (ep.bEndpointAddress == endpoint_address) {
+                    layout->max_packet_size = packet * mult;
+                    layout->interval = std::max(1, static_cast<int>(ep.bInterval));
+                    found_endpoint = true;
+                } else if (feedback_endpoint != 0 &&
+                           ep.bEndpointAddress == feedback_endpoint) {
+                    layout->feedback_max_packet_size = packet * mult;
+                }
             }
         }
     }
@@ -153,13 +185,13 @@ bool discover_layout(libusb_device_handle* device, int streaming_interface, int 
 
 int set_sample_rate(UsbAudioHandle* handle) {
     if (handle->sample_rate <= 0) {
-        return 0;
+        return kUsbOk;
     }
 
     if (handle->uac_version == 2) {
         if (handle->clock_source_id <= 0) {
             LOGW("no UAC2 clock source id; skipping rate control");
-            return 0;
+            return kUsbOk;
         }
         const uint32_t rate = static_cast<uint32_t>(handle->sample_rate);
         uint8_t data[4] = {
@@ -176,9 +208,9 @@ int set_sample_rate(UsbAudioHandle* handle) {
             index, data, sizeof(data), kControlTimeoutMs);
         if (result != static_cast<int>(sizeof(data))) {
             LOGE("UAC2 SET_CUR sample rate %d failed: %d", handle->sample_rate, result);
-            return result < 0 ? result : LIBUSB_ERROR_IO;
+            return result < 0 ? map_libusb_error(result) : kUsbErrIo;
         }
-        return 0;
+        return kUsbOk;
     }
 
     uint8_t data[3] = {
@@ -192,9 +224,9 @@ int set_sample_rate(UsbAudioHandle* handle) {
         handle->endpoint, data, sizeof(data), kControlTimeoutMs);
     if (result != static_cast<int>(sizeof(data))) {
         LOGE("UAC1 SET_CUR sample rate %d failed: %d", handle->sample_rate, result);
-        return result < 0 ? result : LIBUSB_ERROR_IO;
+        return result < 0 ? map_libusb_error(result) : kUsbErrIo;
     }
-    return 0;
+    return kUsbOk;
 }
 
 /** Reads back the UAC2 clock source's current sample rate; -1 when unknown. */
@@ -224,16 +256,43 @@ void fill_transfer(StreamState* stream, libusb_transfer* transfer) {
     // USB audio packets must carry a whole number of frames. The endpoint's
     // frame rate is not an integer multiple of the microframe rate at rates
     // like 44.1 kHz (44100 / 8000 = 5.5125 frames), so alternate between
-    // floor and ceil frame counts using a fractional carry.
-    const double frames_per_packet =
+    // floor and ceil frame counts using a fractional carry, paced by async
+    // feedback when available and a gentle ring-fill outer loop.
+    const double nominal_frames =
         static_cast<double>(handle->sample_rate) /
         static_cast<double>(handle->packets_per_second);
+    const int max_by_packet =
+        handle->max_packet_size / std::max(1, handle->bytes_per_frame);
+    const int min_frames =
+        std::max(1, static_cast<int>(std::floor(nominal_frames)) - 1);
+    const int max_frames =
+        std::min(max_by_packet, static_cast<int>(std::ceil(nominal_frames)) + 1);
+
+    double frames_per_packet = nominal_frames;
+    const uint32_t fb_q16_16 = stream->feedback_q16_16.load(std::memory_order_acquire);
+    if (fb_q16_16 != 0) {
+        double fb_frames = static_cast<double>(fb_q16_16) / 65536.0;
+        if (std::abs(fb_frames / 8.0 - nominal_frames) <= nominal_frames * 0.10) {
+            fb_frames /= 8.0;
+        }
+        if (std::abs(fb_frames - nominal_frames) <= nominal_frames * 0.10) {
+            frames_per_packet = fb_frames;
+        }
+    }
+
+    if (!stream->silence && handle->ring != nullptr &&
+        !handle->decoder_done.load(std::memory_order_acquire)) {
+        const int nudge =
+            ring_fill_nudge(handle->ring->available(), handle->ring->capacity());
+        frames_per_packet += static_cast<double>(nudge) * (nominal_frames * 0.0005);
+    }
 
     int offset = 0;
     for (int i = 0; i < transfer->num_iso_packets; ++i) {
         stream->carry += frames_per_packet;
         int frames = static_cast<int>(stream->carry);
         stream->carry -= static_cast<double>(frames);
+        frames = std::clamp(frames, min_frames, std::max(min_frames, max_frames));
         int length = frames * handle->bytes_per_frame;
         if (length > handle->max_packet_size) {
             length = handle->max_packet_size;
@@ -264,48 +323,80 @@ void fill_transfer(StreamState* stream, libusb_transfer* transfer) {
         offset += length;
     }
     transfer->length = offset;
-    if (handle->bytes_per_frame > 0) {
-        handle->frames_written.fetch_add(
-            static_cast<uint64_t>(offset / handle->bytes_per_frame),
-            std::memory_order_acq_rel);
-    }
-}
-
-int submit_transfer(StreamState* stream, libusb_transfer* transfer) {
-    stream->in_flight.fetch_add(1, std::memory_order_acq_rel);
-    const int result = libusb_submit_transfer(transfer);
-    if (result < 0) {
-        stream->in_flight.fetch_sub(1, std::memory_order_acq_rel);
-    }
-    return result;
 }
 
 bool should_continue(StreamState* stream) {
-    if (stream->stop.load(std::memory_order_acquire)) {
+    UsbAudioHandle* handle = stream->handle;
+    if (stream->stop.load(std::memory_order_acquire) ||
+        handle->stop.load(std::memory_order_acquire)) {
         return false;
     }
     if (stream->silence) {
         return stream->frames_done.load(std::memory_order_acquire) < stream->target_frames;
     }
-    return !(stream->handle->decoder_done.load(std::memory_order_acquire) &&
-             stream->handle->ring->available() == 0);
+    if (handle->decoder_done.load(std::memory_order_acquire) &&
+        (handle->ring == nullptr || handle->ring->available() == 0)) {
+        return false;
+    }
+    return true;
+}
+
+int submit_transfer(StreamState* stream, libusb_transfer* transfer) {
+    const int result = libusb_submit_transfer(transfer);
+    if (result == 0) {
+        stream->in_flight.fetch_add(1, std::memory_order_acq_rel);
+    }
+    return result;
+}
+
+void LIBUSB_CALL on_feedback_transfer(libusb_transfer* transfer) {
+    auto* stream = static_cast<StreamState*>(transfer->user_data);
+    UsbAudioHandle* handle = stream->handle;
+    stream->feedback_in_flight.fetch_sub(1, std::memory_order_acq_rel);
+
+    if (transfer->status == LIBUSB_TRANSFER_COMPLETED && transfer->num_iso_packets > 0) {
+        const libusb_iso_packet_descriptor& packet = transfer->iso_packet_desc[0];
+        if (packet.status == LIBUSB_TRANSFER_COMPLETED && packet.actual_length >= 3) {
+            const int version =
+                (packet.actual_length >= 4 && handle->uac_version == 2) ? 2 : 1;
+            const uint32_t fb = feedback_to_q16_16(transfer->buffer, version);
+            if (fb != 0) {
+                stream->feedback_q16_16.store(fb, std::memory_order_release);
+            }
+        }
+    }
+
+    if (!should_continue(stream)) {
+        return;
+    }
+
+    transfer->iso_packet_desc[0].length =
+        static_cast<unsigned int>(stream->feedback_buffer.size());
+    transfer->length = static_cast<int>(stream->feedback_buffer.size());
+    if (libusb_submit_transfer(transfer) == 0) {
+        stream->feedback_in_flight.fetch_add(1, std::memory_order_acq_rel);
+    }
 }
 
 void LIBUSB_CALL on_transfer(libusb_transfer* transfer) {
     auto* stream = static_cast<StreamState*>(transfer->user_data);
-    auto* handle = stream->handle;
+    UsbAudioHandle* handle = stream->handle;
     stream->in_flight.fetch_sub(1, std::memory_order_acq_rel);
 
     if (transfer->status == LIBUSB_TRANSFER_COMPLETED) {
+        uint64_t completed_frames = 0;
         for (int i = 0; i < transfer->num_iso_packets; ++i) {
             const libusb_iso_packet_descriptor& packet = transfer->iso_packet_desc[i];
             if (packet.status == LIBUSB_TRANSFER_COMPLETED) {
-                stream->frames_done.fetch_add(
-                    packet.actual_length / std::max(1, handle->bytes_per_frame),
-                    std::memory_order_acq_rel);
+                completed_frames +=
+                    packet.actual_length / std::max(1, handle->bytes_per_frame);
             } else if (packet.status == LIBUSB_TRANSFER_OVERFLOW) {
                 handle->underruns.fetch_add(1, std::memory_order_acq_rel);
             }
+        }
+        stream->frames_done.fetch_add(completed_frames, std::memory_order_acq_rel);
+        if (!stream->silence) {
+            handle->frames_written.fetch_add(completed_frames, std::memory_order_acq_rel);
         }
     } else if (transfer->status != LIBUSB_TRANSFER_CANCELLED) {
         handle->last_error = transfer->status;
@@ -356,12 +447,19 @@ void stream_thread(UsbAudioHandle* handle) {
         }
     }
 
+    if (stream->feedback_transfer != nullptr) {
+        if (libusb_submit_transfer(stream->feedback_transfer) == 0) {
+            stream->feedback_in_flight.fetch_add(1, std::memory_order_acq_rel);
+        }
+    }
+
     while (should_continue(stream)) {
         struct timeval timeout = {0, 100000};
         libusb_handle_events_timeout_completed(handle->context, &timeout, nullptr);
         if (stream->errors.load(std::memory_order_acquire) > kMaxErrors) {
             LOGE("too many isochronous errors; stopping");
-            handle->error_code.store(kFlacDecodeError, std::memory_order_release);
+            handle->error_code.store(map_libusb_error(handle->last_error),
+                                     std::memory_order_release);
             break;
         }
         if (stream->silence &&
@@ -371,17 +469,22 @@ void stream_thread(UsbAudioHandle* handle) {
     }
 
     const bool completed = !handle->stop.load(std::memory_order_acquire) &&
-                           handle->error_code.load(std::memory_order_acquire) == kFlacOk;
+                           handle->error_code.load(std::memory_order_acquire) == kUsbOk;
     stream->stop.store(true, std::memory_order_release);
     for (auto* transfer : stream->transfers) {
         if (transfer != nullptr) {
             libusb_cancel_transfer(transfer);
         }
     }
+    if (stream->feedback_transfer != nullptr &&
+        stream->feedback_in_flight.load(std::memory_order_acquire) > 0) {
+        libusb_cancel_transfer(stream->feedback_transfer);
+    }
 
     const auto deadline =
         std::chrono::steady_clock::now() + std::chrono::milliseconds(500);
-    while (stream->in_flight.load(std::memory_order_acquire) > 0 &&
+    while ((stream->in_flight.load(std::memory_order_acquire) > 0 ||
+            stream->feedback_in_flight.load(std::memory_order_acquire) > 0) &&
            std::chrono::steady_clock::now() < deadline) {
         struct timeval timeout = {0, 20000};
         libusb_handle_events_timeout_completed(handle->context, &timeout, nullptr);
@@ -394,7 +497,7 @@ void stream_thread(UsbAudioHandle* handle) {
     handle->running.store(false, std::memory_order_release);
     if (completed) {
         handle->state.store(kStateEnded, std::memory_order_release);
-    } else if (handle->error_code.load(std::memory_order_acquire) != kFlacOk) {
+    } else if (handle->error_code.load(std::memory_order_acquire) != kUsbOk) {
         handle->state.store(kStateError, std::memory_order_release);
     } else {
         handle->state.store(kStateIdle, std::memory_order_release);
@@ -444,7 +547,30 @@ void destroy_stream(StreamState* stream) {
             libusb_free_transfer(transfer);
         }
     }
+    if (stream->feedback_transfer != nullptr) {
+        libusb_free_transfer(stream->feedback_transfer);
+    }
     delete stream;
+}
+
+void attach_feedback_transfer(UsbAudioHandle* handle, StreamState* stream) {
+    if (handle->sync_type != kSyncAsync || handle->feedback_endpoint == 0 ||
+        handle->feedback_max_packet_size < 3) {
+        return;
+    }
+    stream->feedback_buffer.assign(
+        static_cast<size_t>(handle->feedback_max_packet_size), 0);
+    libusb_transfer* fb = libusb_alloc_transfer(1);
+    if (fb == nullptr) {
+        return;
+    }
+    libusb_fill_iso_transfer(fb, handle->device, handle->feedback_endpoint,
+                             stream->feedback_buffer.data(),
+                             handle->feedback_max_packet_size, 1,
+                             on_feedback_transfer, stream, 0);
+    fb->iso_packet_desc[0].length =
+        static_cast<unsigned int>(handle->feedback_max_packet_size);
+    stream->feedback_transfer = fb;
 }
 
 void stop_locked(UsbAudioHandle* handle) {
@@ -476,7 +602,9 @@ void stop_locked(UsbAudioHandle* handle) {
         usb_worker.join();
     }
 
-    if (stream != nullptr && stream->in_flight.load(std::memory_order_acquire) == 0) {
+    if (stream != nullptr &&
+        stream->in_flight.load(std::memory_order_acquire) == 0 &&
+        stream->feedback_in_flight.load(std::memory_order_acquire) == 0) {
         destroy_stream(stream);
     } else if (stream != nullptr) {
         LOGW("leaving %d isochronous transfers to libusb after cancel timeout",
@@ -507,6 +635,7 @@ void close_handle(UsbAudioHandle* handle) {
 
     if (handle->device != nullptr) {
         if (handle->streaming_interface >= 0) {
+            libusb_set_auto_detach_kernel_driver(handle->device, 0);
             libusb_set_interface_alt_setting(handle->device, handle->streaming_interface, 0);
             libusb_release_interface(handle->device, handle->streaming_interface);
         }
@@ -567,7 +696,8 @@ extern "C" int64_t bitstream_usb_open(int fd, int endpoint, int interface_number
     }
 
     DeviceLayout layout;
-    if (!discover_layout(handle->device, interface_number, alt_setting, endpoint, &layout)) {
+    if (!discover_layout(handle->device, interface_number, alt_setting, endpoint,
+                         feedback_endpoint, &layout)) {
         LOGE("could not find control interface or endpoint 0x%02x on alt %d",
              endpoint, alt_setting);
         close_handle(handle);
@@ -577,6 +707,7 @@ extern "C" int64_t bitstream_usb_open(int fd, int endpoint, int interface_number
     handle->uac_version = layout.uac_version;
     handle->max_packet_size = layout.max_packet_size;
     handle->interval = layout.interval;
+    handle->feedback_max_packet_size = layout.feedback_max_packet_size;
 
     const int speed = libusb_get_device_speed(libusb_get_device(handle->device));
     const int frames_per_second =
@@ -615,17 +746,49 @@ extern "C" int64_t bitstream_usb_open(int fd, int endpoint, int interface_number
     return reinterpret_cast<int64_t>(handle);
 }
 
+extern "C" int bitstream_usb_set_sample_rate(int64_t raw_handle, int sample_rate) {
+    auto* handle = reinterpret_cast<UsbAudioHandle*>(raw_handle);
+    if (handle == nullptr || handle->device == nullptr || sample_rate <= 0) {
+        return kUsbErrFormatMismatch;
+    }
+    stop_locked(handle);
+    if (handle->sample_rate == sample_rate) {
+        return kUsbOk;
+    }
+
+    libusb_set_interface_alt_setting(handle->device, handle->streaming_interface, 0);
+    handle->sample_rate = sample_rate;
+    const int rate_result = set_sample_rate(handle);
+    if (rate_result != kUsbOk) {
+        handle->error_code.store(rate_result, std::memory_order_release);
+        return rate_result;
+    }
+    LOGI("clock source %d switched rate: %d Hz (requested %d)",
+         handle->clock_source_id, read_sample_rate(handle), handle->sample_rate);
+
+    const int alt_result = libusb_set_interface_alt_setting(
+        handle->device, handle->streaming_interface, handle->alt_setting);
+    if (alt_result < 0) {
+        LOGE("set alt setting %d after rate switch failed: %d",
+             handle->alt_setting, alt_result);
+        const int mapped = map_libusb_error(alt_result);
+        handle->error_code.store(mapped, std::memory_order_release);
+        return mapped;
+    }
+    return kUsbOk;
+}
+
 extern "C" int bitstream_usb_start_silence(int64_t raw_handle, int64_t frames) {
     auto* handle = reinterpret_cast<UsbAudioHandle*>(raw_handle);
     if (handle == nullptr || frames <= 0 || handle->bytes_per_frame <= 0) {
-        return LIBUSB_ERROR_INVALID_PARAM;
+        return kUsbErrFormatMismatch;
     }
 
     stop_locked(handle);
 
     std::lock_guard<std::mutex> lock(handle->mutex);
     if (handle->stream != nullptr || handle->running.load(std::memory_order_acquire)) {
-        return LIBUSB_ERROR_BUSY;
+        return kUsbErrBusy;
     }
 
     auto* stream = new StreamState();
@@ -641,20 +804,21 @@ extern "C" int bitstream_usb_start_silence(int64_t raw_handle, int64_t frames) {
         libusb_transfer* transfer = libusb_alloc_transfer(kPacketsPerUrb);
         if (transfer == nullptr) {
             destroy_stream(stream);
-            return LIBUSB_ERROR_NO_MEM;
+            return kUsbErrIo;
         }
         libusb_fill_iso_transfer(transfer, handle->device, handle->endpoint,
                                  stream->buffers[i].data(), 0, kPacketsPerUrb,
                                  on_transfer, stream, 0);
         stream->transfers[i] = transfer;
     }
+    attach_feedback_transfer(handle, stream);
 
     handle->stream = stream;
     handle->stop.store(false, std::memory_order_release);
     handle->decoder_done.store(true, std::memory_order_release);
     handle->frames_written.store(0, std::memory_order_release);
     handle->underruns.store(0, std::memory_order_release);
-    handle->error_code.store(kFlacOk, std::memory_order_release);
+    handle->error_code.store(kUsbOk, std::memory_order_release);
     handle->state.store(kStatePlaying, std::memory_order_release);
     handle->running.store(true, std::memory_order_release);
     handle->worker = std::thread(stream_thread, handle);
@@ -664,7 +828,7 @@ extern "C" int bitstream_usb_start_silence(int64_t raw_handle, int64_t frames) {
          static_cast<int>((static_cast<double>(handle->sample_rate) *
                            handle->bytes_per_frame) /
                           handle->packets_per_second));
-    return 0;
+    return kUsbOk;
 }
 
 extern "C" int bitstream_usb_play_file(int64_t raw_handle, int fd, int64_t start_frame,
@@ -673,12 +837,12 @@ extern "C" int bitstream_usb_play_file(int64_t raw_handle, int fd, int64_t start
     auto* handle = reinterpret_cast<UsbAudioHandle*>(raw_handle);
     if (handle == nullptr || fd < 0 || start_frame < 0 ||
         !format_matches(handle, sample_rate, bit_depth, channels, subslot_bytes)) {
-        return kFlacFormatMismatch;
+        return kUsbErrFormatMismatch;
     }
 
     const int owned_fd = dup(fd);
     if (owned_fd < 0) {
-        return kFlacIoError;
+        return kUsbErrIo;
     }
 
     stop_locked(handle);
@@ -686,7 +850,7 @@ extern "C" int bitstream_usb_play_file(int64_t raw_handle, int fd, int64_t start
     std::lock_guard<std::mutex> lock(handle->mutex);
     if (handle->stream != nullptr || handle->running.load(std::memory_order_acquire)) {
         close(owned_fd);
-        return LIBUSB_ERROR_BUSY;
+        return kUsbErrBusy;
     }
 
     const size_t ring_bytes = static_cast<size_t>(sample_rate) *
@@ -694,7 +858,7 @@ extern "C" int bitstream_usb_play_file(int64_t raw_handle, int fd, int64_t start
                               static_cast<size_t>(subslot_bytes) * kRingSeconds;
     if (ring_bytes == 0) {
         close(owned_fd);
-        return kFlacFormatMismatch;
+        return kUsbErrFormatMismatch;
     }
 
     auto* stream = new StreamState();
@@ -710,13 +874,14 @@ extern "C" int bitstream_usb_play_file(int64_t raw_handle, int fd, int64_t start
         if (transfer == nullptr) {
             destroy_stream(stream);
             close(owned_fd);
-            return LIBUSB_ERROR_NO_MEM;
+            return kUsbErrIo;
         }
         libusb_fill_iso_transfer(transfer, handle->device, handle->endpoint,
                                  stream->buffers[i].data(), 0, kPacketsPerUrb,
                                  on_transfer, stream, 0);
         stream->transfers[i] = transfer;
     }
+    attach_feedback_transfer(handle, stream);
 
     handle->ring = new RingBuffer(ring_bytes);
     handle->stream = stream;
@@ -725,7 +890,7 @@ extern "C" int bitstream_usb_play_file(int64_t raw_handle, int fd, int64_t start
     handle->frames_written.store(0, std::memory_order_release);
     handle->underruns.store(0, std::memory_order_release);
     handle->md5_state.store(kMd5Unavailable, std::memory_order_release);
-    handle->error_code.store(kFlacOk, std::memory_order_release);
+    handle->error_code.store(kUsbOk, std::memory_order_release);
     handle->state.store(kStatePlaying, std::memory_order_release);
     handle->running.store(true, std::memory_order_release);
 
@@ -742,7 +907,7 @@ extern "C" int bitstream_usb_play_file(int64_t raw_handle, int fd, int64_t start
     LOGI("playing fd=%d start=%lld %d Hz/%d-bit/%d ch subslot=%d ring=%zu",
          fd, static_cast<long long>(start_frame), sample_rate, bit_depth, channels,
          subslot_bytes, ring_bytes);
-    return 0;
+    return kUsbOk;
 }
 
 extern "C" int bitstream_usb_enqueue_next(int64_t raw_handle, int fd, int sample_rate,
@@ -750,21 +915,21 @@ extern "C" int bitstream_usb_enqueue_next(int64_t raw_handle, int fd, int sample
     auto* handle = reinterpret_cast<UsbAudioHandle*>(raw_handle);
     if (handle == nullptr || fd < 0 ||
         !format_matches(handle, sample_rate, bit_depth, channels, subslot_bytes)) {
-        return kFlacFormatMismatch;
+        return kUsbErrFormatMismatch;
     }
     if (handle->decoder_done.load(std::memory_order_acquire)) {
-        return LIBUSB_ERROR_BUSY;
+        return kUsbErrBusy;
     }
 
     const int owned_fd = dup(fd);
     if (owned_fd < 0) {
-        return kFlacIoError;
+        return kUsbErrIo;
     }
 
     std::lock_guard<std::mutex> lock(handle->next_mutex);
     handle->next_files.push_back(PlayFile{owned_fd, 0, sample_rate, bit_depth, channels,
                                           subslot_bytes});
-    return 0;
+    return kUsbOk;
 }
 
 extern "C" void bitstream_usb_stop(int64_t raw_handle) {

@@ -89,6 +89,20 @@ class NativeAudioBackend(
             )
         }
 
+        val sameInterfaceAndSubslot = nativeHandle != 0L &&
+            openedDeviceFd == dacState.fileDescriptor &&
+            openedChannels == format.channels &&
+            openedSubslotBytes == matchingFormat.subslotBytes
+
+        if (sameInterfaceAndSubslot && openedSampleRate != format.sampleRate) {
+            val switched = NativeAudio.nativeSetSampleRate(nativeHandle, format.sampleRate)
+            if (switched == 0) {
+                openedSampleRate = format.sampleRate
+            } else {
+                closeNativeHandle()
+            }
+        }
+
         val canReuseHandle = nativeHandle != 0L &&
             openedDeviceFd == dacState.fileDescriptor &&
             openedSampleRate == format.sampleRate &&

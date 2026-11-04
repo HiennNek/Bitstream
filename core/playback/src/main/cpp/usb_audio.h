@@ -4,9 +4,22 @@
 
 extern "C" {
 
+constexpr int kUsbOk = 0;
+constexpr int kUsbErrFormatMismatch = -1;
+constexpr int kUsbErrIo = -2;
+constexpr int kUsbErrDecode = -3;
+constexpr int kUsbErrNoDevice = -4;
+constexpr int kUsbErrBusy = -5;
+constexpr int kUsbErrStall = -6;
+constexpr int kUsbErrOverrun = -7;
+constexpr int kUsbErrUnderrun = -8;
+constexpr int kUsbErrProtocol = -9;
+
 int64_t bitstream_usb_open(int fd, int endpoint, int interface_number, int alt_setting,
                            int subslot_bytes, int channels, int sample_rate, int sync_type,
                            int feedback_endpoint, int clock_source_id);
+
+int bitstream_usb_set_sample_rate(int64_t handle, int sample_rate);
 
 int bitstream_usb_start_silence(int64_t handle, int64_t frames);
 

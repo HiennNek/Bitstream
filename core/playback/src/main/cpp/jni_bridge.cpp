@@ -15,6 +15,13 @@ Java_dev_hien_bitstream_core_playback_native_NativeAudio_nativeOpen(
 }
 
 JNIEXPORT jint JNICALL
+Java_dev_hien_bitstream_core_playback_native_NativeAudio_nativeSetSampleRate(
+    JNIEnv*, jobject, jlong handle, jint rate) {
+    return static_cast<jint>(
+        bitstream_usb_set_sample_rate(static_cast<int64_t>(handle), rate));
+}
+
+JNIEXPORT jint JNICALL
 Java_dev_hien_bitstream_core_playback_native_NativeAudio_nativeStartSilence(
     JNIEnv*, jobject, jlong handle, jlong frames) {
     return static_cast<jint>(bitstream_usb_start_silence(

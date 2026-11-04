@@ -220,63 +220,63 @@
 				{
 					"directoryIndex" : 3,
 					"id" : "FLAC::@0febc6bb69fbc0e240a4",
-					"jsonFile" : "target-FLAC-Debug-42b910fe31fe6d4edf66.json",
+					"jsonFile" : "target-FLAC-Debug-13be142d9493a69e6ec3.json",
 					"name" : "FLAC",
 					"projectIndex" : 1
 				},
 				{
 					"directoryIndex" : 9,
 					"id" : "benchmark_residual::@13c0583d3b30d179845d",
-					"jsonFile" : "target-benchmark_residual-Debug-f8ccacd5db1a56c880d7.json",
+					"jsonFile" : "target-benchmark_residual-Debug-08ec8390dd773ba71832.json",
 					"name" : "benchmark_residual",
 					"projectIndex" : 1
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "bitstream_audio::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-bitstream_audio-Debug-36a150d1b5d54d28a252.json",
+					"jsonFile" : "target-bitstream_audio-Debug-5c0b31bdb7ca1c05cd3f.json",
 					"name" : "bitstream_audio",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 6,
 					"id" : "getopt::@e1baf51bb9aaa6fe1490",
-					"jsonFile" : "target-getopt-Debug-ed7aaa6563a14d8f10de.json",
+					"jsonFile" : "target-getopt-Debug-d3ceb547aa8a34d4c2e6.json",
 					"name" : "getopt",
 					"projectIndex" : 1
 				},
 				{
 					"directoryIndex" : 8,
 					"id" : "grabbag::@bca07ce905e1cd058bb2",
-					"jsonFile" : "target-grabbag-Debug-6bd25f6c0dc832fa0e51.json",
+					"jsonFile" : "target-grabbag-Debug-2efcb5320df9c25e952b.json",
 					"name" : "grabbag",
 					"projectIndex" : 1
 				},
 				{
 					"directoryIndex" : 4,
 					"id" : "replaygain_analysis::@a3f04299184e97e36270",
-					"jsonFile" : "target-replaygain_analysis-Debug-6c42d846ca36260ec7a1.json",
+					"jsonFile" : "target-replaygain_analysis-Debug-d2daeca17637ba6bb329.json",
 					"name" : "replaygain_analysis",
 					"projectIndex" : 1
 				},
 				{
 					"directoryIndex" : 5,
 					"id" : "replaygain_synthesis::@5a9fe8174437cd7a9a32",
-					"jsonFile" : "target-replaygain_synthesis-Debug-dc9c925e7b822f0fc7c8.json",
+					"jsonFile" : "target-replaygain_synthesis-Debug-dbc8ca4459f2e57186bf.json",
 					"name" : "replaygain_synthesis",
 					"projectIndex" : 1
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "usb-1.0::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-usb-1.0-Debug-720b17fa06b84b6c1de5.json",
+					"jsonFile" : "target-usb-1.0-Debug-2a4ffa18bb046e2350b5.json",
 					"name" : "usb-1.0",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 7,
 					"id" : "utf8::@7f3bee2d81818d195ec6",
-					"jsonFile" : "target-utf8-Debug-090415a1d97991e98d57.json",
+					"jsonFile" : "target-utf8-Debug-817f808fa9fdca81c135.json",
 					"name" : "utf8",
 					"projectIndex" : 1
 				}
@@ -286,7 +286,7 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/x86_64",
+		"build" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a",
 		"source" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/src/main/cpp"
 	},
 	"version" : 

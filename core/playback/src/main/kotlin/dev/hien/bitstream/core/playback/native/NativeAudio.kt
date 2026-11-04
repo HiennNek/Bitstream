@@ -24,6 +24,12 @@ object NativeAudio {
         clockSourceId: Int,
     ): Long
 
+    /**
+     * Switches the active handle's sample rate (UAC2 clock source `SET_CUR` or
+     * UAC1 endpoint `SET_CUR`). Returns `0` on success or a negative error code.
+     */
+    external fun nativeSetSampleRate(handle: Long, rate: Int): Int
+
     external fun nativeStartSilence(handle: Long, frames: Long): Int
 
     /**
