@@ -1,0 +1,87 @@
+package dev.hien.bitstream.core.data
+
+import dev.hien.bitstream.core.data.db.AlbumDao
+import dev.hien.bitstream.core.data.db.AlbumEntity
+import dev.hien.bitstream.core.data.db.ArtistDao
+import dev.hien.bitstream.core.data.db.ArtistEntity
+import dev.hien.bitstream.core.data.db.TrackDao
+import dev.hien.bitstream.core.data.db.TrackEntity
+import dev.hien.bitstream.core.model.Album
+import dev.hien.bitstream.core.model.Artist
+import dev.hien.bitstream.core.model.Track
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+
+/** The read side the UI needs. Kept as an interface so ViewModels can be tested with fakes. */
+interface MusicRepository {
+    val tracks: Flow<List<Track>>
+    val albums: Flow<List<Album>>
+    val artists: Flow<List<Artist>>
+
+    fun search(query: String): Flow<List<Track>>
+
+    suspend fun tracksByIds(ids: List<Long>): List<Track>
+
+    /** Rebuild the derived album and artist tables after a scan or an incremental update. */
+    suspend fun rebuildDerived()
+}
+
+class RoomMusicRepository(
+    private val trackDao: TrackDao,
+    private val albumDao: AlbumDao,
+    private val artistDao: ArtistDao,
+) : MusicRepository {
+    override val tracks: Flow<List<Track>> =
+        trackDao.observeTracks().map { entities -> entities.map { it.toModel() } }
+
+    override val albums: Flow<List<Album>> =
+        albumDao.observeAlbums().map { entities -> entities.map { it.toModel() } }
+
+    override val artists: Flow<List<Artist>> =
+        artistDao.observeArtists().map { entities -> entities.map { it.toModel() } }
+
+    override fun search(query: String): Flow<List<Track>> =
+        trackDao.search(query).map { entities -> entities.map { it.toModel() } }
+
+    override suspend fun tracksByIds(ids: List<Long>): List<Track> =
+        trackDao.tracksByIds(ids).map { it.toModel() }
+
+    override suspend fun rebuildDerived() {
+        albumDao.rebuild()
+        artistDao.rebuild()
+    }
+}
+
+fun TrackEntity.toModel(): Track = Track(
+    id = id,
+    uri = uri,
+    title = title,
+    artist = artist,
+    album = album,
+    albumArtist = albumArtist,
+    trackNumber = trackNumber,
+    discNumber = discNumber,
+    durationMs = durationMs,
+    sampleRate = sampleRate,
+    bitDepth = bitDepth,
+    channels = channels,
+    hasMd5 = hasMd5,
+    artworkUri = artKey,
+)
+
+fun AlbumEntity.toModel(): Album = Album(
+    id = id,
+    title = title,
+    albumArtist = albumArtist,
+    artworkUri = artKey,
+    trackCount = trackCount,
+    year = year,
+)
+
+fun ArtistEntity.toModel(): Artist = Artist(
+    id = id,
+    name = name,
+    albumCount = albumCount,
+    trackCount = trackCount,
+    artworkUri = artKey,
+)
