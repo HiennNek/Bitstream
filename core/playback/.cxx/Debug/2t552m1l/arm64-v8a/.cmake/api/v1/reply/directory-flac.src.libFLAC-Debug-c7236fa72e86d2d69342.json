@@ -1,0 +1,45 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"install"
+		],
+		"files" : 
+		[
+			"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/src/libFLAC/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 113,
+				"parent" : 0
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 1,
+			"component" : "Unspecified",
+			"destination" : "lib",
+			"paths" : 
+			[
+				"flac/src/libFLAC/libFLAC.a"
+			],
+			"targetId" : "FLAC::@0febc6bb69fbc0e240a4",
+			"targetIndex" : 0,
+			"type" : "target"
+		}
+	],
+	"paths" : 
+	{
+		"build" : "flac/src/libFLAC",
+		"source" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/src/libFLAC"
+	}
+}

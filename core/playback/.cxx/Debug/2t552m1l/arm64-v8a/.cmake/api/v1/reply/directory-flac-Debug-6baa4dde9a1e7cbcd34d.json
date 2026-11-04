@@ -1,0 +1,71 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"install"
+		],
+		"files" : 
+		[
+			"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 268,
+				"parent" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 269,
+				"parent" : 0
+			}
+		]
+	},
+	"installers" : 
+	[
+		{
+			"backtrace" : 1,
+			"component" : "Unspecified",
+			"destination" : "include/FLAC",
+			"paths" : 
+			[
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC/all.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC/assert.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC/callback.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC/export.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC/format.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC/metadata.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC/ordinals.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC/stream_decoder.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC/stream_encoder.h"
+			],
+			"type" : "file"
+		},
+		{
+			"backtrace" : 2,
+			"component" : "Unspecified",
+			"destination" : "include/FLAC++",
+			"paths" : 
+			[
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC++/all.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC++/decoder.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC++/encoder.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC++/export.h",
+				"/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include/FLAC++/metadata.h"
+			],
+			"type" : "file"
+		}
+	],
+	"paths" : 
+	{
+		"build" : "flac",
+		"source" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3"
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "flac/src/share/getopt",
+		"source" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/src/share/getopt"
+	}
+}

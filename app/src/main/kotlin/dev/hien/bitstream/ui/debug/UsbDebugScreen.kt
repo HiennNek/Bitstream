@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
+import dev.hien.bitstream.core.playback.native.NativeAudio
 import dev.hien.bitstream.core.playback.usb.DacState
 import dev.hien.bitstream.core.playback.usb.SyncType
 import dev.hien.bitstream.core.playback.usb.UacDevice
@@ -165,6 +167,7 @@ fun UsbDebugScreen(
                     }
                     item { DeviceDetails(connected.device) }
                     item { FormatsSection(connected.device.formats) }
+                    item { SilenceSpikeCard(connected) }
                     item { DescriptorSection(connected.device.rawDescriptor) }
                 }
             }
@@ -324,6 +327,81 @@ private fun FormatsSection(formats: List<UacFormat>) {
                         format.sampleRates.joinToString(" / ", transform = ::formatRate)
                     },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SilenceSpikeCard(connected: DacState.Connected) {
+    val format = remember(connected.device) {
+        connected.device.formats.firstOrNull { 48_000 in it.sampleRates }
+            ?: connected.device.formats.firstOrNull()
+    }
+    var handle by remember(connected.handle.key) { mutableStateOf(0L) }
+    var status by remember(connected.handle.key) {
+        mutableStateOf("Ready — streams zeros at 48 kHz through libusb.")
+    }
+
+    DisposableEffect(connected.handle.key) {
+        onDispose {
+            if (handle != 0L) {
+                NativeAudio.nativeStop(handle)
+                NativeAudio.nativeClose(handle)
+                handle = 0L
+            }
+        }
+    }
+
+    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Native USB spike", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = status,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            FilledTonalButton(
+                enabled = format != null,
+                onClick = {
+                    if (handle != 0L) {
+                        NativeAudio.nativeStop(handle)
+                        NativeAudio.nativeClose(handle)
+                        handle = 0L
+                    }
+                    if (format == null) {
+                        status = "No PCM format is available."
+                        return@FilledTonalButton
+                    }
+                    val opened = NativeAudio.nativeOpen(
+                        fd = connected.fileDescriptor,
+                        endpoint = connected.device.endpointAddress,
+                        interfaceNumber = connected.device.streamingInterface,
+                        altSetting = connected.device.altSetting,
+                        subslotBytes = format.subslotBytes,
+                        channels = format.channels,
+                        sampleRate = 48_000,
+                        syncType = connected.device.syncType.ordinal,
+                        feedbackEndpoint = connected.device.feedbackEndpoint ?: 0,
+                        clockSourceId = connected.device.clockSourceId ?: 0,
+                    )
+                    if (opened == 0L) {
+                        status = "nativeOpen failed — check logcat for the libusb error."
+                        return@FilledTonalButton
+                    }
+                    handle = opened
+                    val result = NativeAudio.nativeStartSilence(opened, 96_000L)
+                    status = if (result == 0) {
+                        "Streaming 2 s of silence at 48 kHz (handle $opened)."
+                    } else {
+                        "nativeStartSilence failed with code $result."
+                    }
+                },
+            ) {
+                Text("Send 2 s silence")
             }
         }
     }

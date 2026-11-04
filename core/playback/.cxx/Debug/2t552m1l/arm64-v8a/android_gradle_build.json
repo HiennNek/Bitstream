@@ -1,0 +1,101 @@
+{
+  "buildFiles": [
+    "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/src/main/cpp/CMakeLists.txt",
+    "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/CMakeLists.txt",
+    "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/microbench/CMakeLists.txt",
+    "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/src/CMakeLists.txt",
+    "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/src/libFLAC/CMakeLists.txt",
+    "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/src/share/getopt/CMakeLists.txt",
+    "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/src/share/grabbag/CMakeLists.txt",
+    "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/src/share/replaygain_analysis/CMakeLists.txt",
+    "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/src/share/replaygain_synthesis/CMakeLists.txt",
+    "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/src/share/utf8/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/home/hien/Android/Sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/home/hien/Android/Sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "FLAC::@0febc6bb69fbc0e240a4": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "FLAC",
+      "output": "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/flac/src/libFLAC/libFLAC.a"
+    },
+    "benchmark_residual::@13c0583d3b30d179845d": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "benchmark_residual",
+      "output": "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/arm64-v8a/benchmark_residual",
+      "runtimeFiles": []
+    },
+    "bitstream_audio::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "bitstream_audio",
+      "output": "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/arm64-v8a/libbitstream_audio.so",
+      "runtimeFiles": [
+        "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/arm64-v8a/libusb-1.0.so"
+      ]
+    },
+    "getopt::@e1baf51bb9aaa6fe1490": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "getopt",
+      "output": "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/flac/src/share/getopt/libgetopt.a"
+    },
+    "grabbag::@bca07ce905e1cd058bb2": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "grabbag",
+      "output": "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/flac/src/share/grabbag/libgrabbag.a"
+    },
+    "replaygain_analysis::@a3f04299184e97e36270": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "replaygain_analysis",
+      "output": "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/flac/src/share/replaygain_analysis/libreplaygain_analysis.a"
+    },
+    "replaygain_synthesis::@5a9fe8174437cd7a9a32": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "replaygain_synthesis",
+      "output": "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/flac/src/share/replaygain_synthesis/libreplaygain_synthesis.a"
+    },
+    "usb-1.0::@6890427a1f51a3e7e1df": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "usb-1.0",
+      "output": "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/arm64-v8a/libusb-1.0.so",
+      "runtimeFiles": []
+    },
+    "utf8::@7f3bee2d81818d195ec6": {
+      "toolchain": "toolchain",
+      "abi": "arm64-v8a",
+      "artifactName": "utf8",
+      "output": "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/flac/src/share/utf8/libutf8.a"
+    }
+  },
+  "toolchains": {
+    "toolchain": {
+      "cCompilerExecutable": "/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/clang.lld",
+      "cppCompilerExecutable": "/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/clang++.lld"
+    }
+  },
+  "cFileExtensions": [
+    "c"
+  ],
+  "cppFileExtensions": [
+    "cpp"
+  ]
+}

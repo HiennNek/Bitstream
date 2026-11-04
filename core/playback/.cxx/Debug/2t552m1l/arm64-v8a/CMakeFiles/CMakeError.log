@@ -1,0 +1,232 @@
+Determining if the include file x86intrin.h exists failed with the following output:
+Change Dir: /home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/home/hien/Android/Sdk/cmake/3.22.1/bin/ninja cmTC_30769 && [1/2] Building C object CMakeFiles/cmTC_30769.dir/CheckIncludeFile.c.o
+FAILED: CMakeFiles/cmTC_30769.dir/CheckIncludeFile.c.o 
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-none-linux-android29 --sysroot=/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/sysroot   -Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return -Wcast-align -Wnested-externs -Wshadow -Wundef -Wmissing-declarations -Winline -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -fPIE -MD -MT CMakeFiles/cmTC_30769.dir/CheckIncludeFile.c.o -MF CMakeFiles/cmTC_30769.dir/CheckIncludeFile.c.o.d -o CMakeFiles/cmTC_30769.dir/CheckIncludeFile.c.o -c /home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp/CheckIncludeFile.c
+In file included from /home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp/CheckIncludeFile.c:1:
+In file included from /home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/x86intrin.h:15:
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/immintrin.h:14:2: error: "This header is only meant to be used on x86 and x64 architecture"
+   14 | #error "This header is only meant to be used on x86 and x64 architecture"
+      |  ^
+In file included from /home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp/CheckIncludeFile.c:1:
+In file included from /home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/x86intrin.h:15:
+In file included from /home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/immintrin.h:17:
+In file included from /home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/x86gprintrin.h:14:
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/hresetintrin.h:42:27: error: invalid input constraint 'a' in asm
+   42 |   __asm__ ("hreset $0" :: "a"(__eax));
+      |                           ^
+In file included from /home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp/CheckIncludeFile.c:1:
+In file included from /home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/x86intrin.h:15:
+In file included from /home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/immintrin.h:20:
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:14:2: error: "This header is only meant to be used on x86 and x64 architecture"
+   14 | #error "This header is only meant to be used on x86 and x64 architecture"
+      |  ^
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:165:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  165 |     return __trunc64(__builtin_ia32_packsswb128(
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  166 |         (__v8hi)__builtin_shufflevector(__m1, __m2, 0, 1), (__v8hi){}));
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:191:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  191 |     return __trunc64(__builtin_ia32_packssdw128(
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  192 |         (__v4si)__builtin_shufflevector(__m1, __m2, 0, 1), (__v4si){}));
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:217:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  217 |     return __trunc64(__builtin_ia32_packuswb128(
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  218 |         (__v8hi)__builtin_shufflevector(__m1, __m2, 0, 1), (__v8hi){}));
+      |         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:707:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  707 |     return __trunc64(__builtin_ia32_pmaddwd128((__v8hi)__anyext128(__m1),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  708 |                                                (__v8hi)__anyext128(__m2)));
+      |                                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:729:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  729 |     return __trunc64(__builtin_ia32_pmulhw128((__v8hi)__anyext128(__m1),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  730 |                                               (__v8hi)__anyext128(__m2)));
+      |                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:774:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  774 |     return __trunc64(__builtin_ia32_psllw128((__v8hi)__anyext128(__m),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  775 |                                              (__v8hi)__anyext128(__count)));
+      |                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:797:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  797 |     return __trunc64(__builtin_ia32_psllwi128((__v8hi)__anyext128(__m),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  798 |                                               __count));
+      |                                               ~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:821:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  821 |     return __trunc64(__builtin_ia32_pslld128((__v4si)__anyext128(__m),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  822 |                                              (__v4si)__anyext128(__count)));
+      |                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:844:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  844 |     return __trunc64(__builtin_ia32_pslldi128((__v4si)__anyext128(__m),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  845 |                                               __count));
+      |                                               ~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:865:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  865 |     return __trunc64(__builtin_ia32_psllq128((__v2di)__anyext128(__m),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  866 |                                              (__v2di)__anyext128(__count)));
+      |                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:886:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  886 |     return __trunc64(__builtin_ia32_psllqi128((__v2di)__anyext128(__m),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  887 |                                               __count));
+      |                                               ~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:911:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  911 |     return __trunc64(__builtin_ia32_psraw128((__v8hi)__anyext128(__m),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  912 |                                              (__v8hi)__anyext128(__count)));
+      |                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:935:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  935 |     return __trunc64(__builtin_ia32_psrawi128((__v8hi)__anyext128(__m),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  936 |                                               __count));
+      |                                               ~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:960:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  960 |     return __trunc64(__builtin_ia32_psrad128((__v4si)__anyext128(__m),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  961 |                                              (__v4si)__anyext128(__count)));
+      |                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:984:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+  984 |     return __trunc64(__builtin_ia32_psradi128((__v4si)__anyext128(__m),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  985 |                                               __count));
+      |                                               ~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:1008:12: error: invalid conversion between vector type '__v2di' (vector of 2 'long long' values) and integer type 'int' of different size
+ 1008 |     return __trunc64(__builtin_ia32_psrlw128((__v8hi)__anyext128(__m),
+      |            ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ 1009 |                                              (__v8hi)__anyext128(__count)));
+      |                                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/mmintrin.h:59:35: note: expanded from macro '__trunc64'
+   59 |   (__m64) __builtin_shufflevector((__v2di)(x), __extension__(__v2di){}, 0)
+      |                                   ^~~~~~~~~~~
+fatal error: too many errors emitted, stopping now [-ferror-limit=]
+20 errors generated.
+ninja: build stopped: subcommand failed.
+
+
+
+Determining if the include file cpuid.h exists failed with the following output:
+Change Dir: /home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/home/hien/Android/Sdk/cmake/3.22.1/bin/ninja cmTC_6eaa0 && [1/2] Building C object CMakeFiles/cmTC_6eaa0.dir/CheckIncludeFile.c.o
+FAILED: CMakeFiles/cmTC_6eaa0.dir/CheckIncludeFile.c.o 
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-none-linux-android29 --sysroot=/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/sysroot   -Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return -Wcast-align -Wnested-externs -Wshadow -Wundef -Wmissing-declarations -Winline -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -fPIE -MD -MT CMakeFiles/cmTC_6eaa0.dir/CheckIncludeFile.c.o -MF CMakeFiles/cmTC_6eaa0.dir/CheckIncludeFile.c.o.d -o CMakeFiles/cmTC_6eaa0.dir/CheckIncludeFile.c.o -c /home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp/CheckIncludeFile.c
+In file included from /home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp/CheckIncludeFile.c:1:
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/cpuid.h:14:2: error: this header is for x86 only
+   14 | #error this header is for x86 only
+      |  ^
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/cpuid.h:310:5: error: invalid output constraint '=a' in asm
+  310 |     __cpuid(__leaf, __eax, __ebx, __ecx, __edx);
+      |     ^
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/cpuid.h:274:11: note: expanded from macro '__cpuid'
+  274 |         : "=a"(__eax), "=r" (__ebx), "=c"(__ecx), "=d"(__edx) \
+      |           ^
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/cpuid.h:325:5: error: invalid output constraint '=a' in asm
+  325 |     __cpuid(__leaf, *__eax, *__ebx, *__ecx, *__edx);
+      |     ^
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/cpuid.h:274:11: note: expanded from macro '__cpuid'
+  274 |         : "=a"(__eax), "=r" (__ebx), "=c"(__ecx), "=d"(__edx) \
+      |           ^
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/cpuid.h:339:5: error: invalid output constraint '=a' in asm
+  339 |     __cpuid_count(__leaf, __subleaf, *__eax, *__ebx, *__ecx, *__edx);
+      |     ^
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/cpuid.h:281:11: note: expanded from macro '__cpuid_count'
+  281 |         : "=a"(__eax), "=r" (__ebx), "=c"(__ecx), "=d"(__edx) \
+      |           ^
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/cpuid.h:347:3: error: invalid output constraint '=a' in asm
+  347 |   __cpuid_count(__leaf, __subleaf, __cpu_info[0], __cpu_info[1], __cpu_info[2],
+      |   ^
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/lib/clang/21/include/cpuid.h:281:11: note: expanded from macro '__cpuid_count'
+  281 |         : "=a"(__eax), "=r" (__ebx), "=c"(__ecx), "=d"(__edx) \
+      |           ^
+5 errors generated.
+ninja: build stopped: subcommand failed.
+
+
+
+Performing C SOURCE FILE Test Intl_IS_BUILT_IN failed with the following output:
+Change Dir: /home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/home/hien/Android/Sdk/cmake/3.22.1/bin/ninja cmTC_6ac38 && [1/2] Building C object CMakeFiles/cmTC_6ac38.dir/src.c.o
+FAILED: CMakeFiles/cmTC_6ac38.dir/src.c.o 
+/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-none-linux-android29 --sysroot=/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/sysroot -DIntl_IS_BUILT_IN  -Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return -Wcast-align -Wnested-externs -Wshadow -Wundef -Wmissing-declarations -Winline -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -fPIE -MD -MT CMakeFiles/cmTC_6ac38.dir/src.c.o -MF CMakeFiles/cmTC_6ac38.dir/src.c.o.d -o CMakeFiles/cmTC_6ac38.dir/src.c.o -c /home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp/src.c
+/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp/src.c:1:10: fatal error: 'libintl.h' file not found
+    1 | #include <libintl.h>
+      |          ^~~~~~~~~~~
+1 error generated.
+ninja: build stopped: subcommand failed.
+
+
+Source file was:
+#include <libintl.h>
+int main(void) {
+  gettext("");
+  dgettext("", "");
+  dcgettext("", "", 0);
+  return 0;
+}
+
+Determining if the function clock_gettime exists failed with the following output:
+Change Dir: /home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/CMakeFiles/CMakeTmp
+
+Run Build Command(s):/home/hien/Android/Sdk/cmake/3.22.1/bin/ninja cmTC_5c3d8 && [1/2] Building C object CMakeFiles/cmTC_5c3d8.dir/CheckFunctionExists.c.o
+[2/2] Linking C executable cmTC_5c3d8
+FAILED: cmTC_5c3d8 
+: && /home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --target=aarch64-none-linux-android29 --sysroot=/home/hien/Android/Sdk/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/sysroot -Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes -Waggregate-return -Wcast-align -Wnested-externs -Wshadow -Wundef -Wmissing-declarations -Winline -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -DCHECK_FUNCTION_EXISTS=clock_gettime -static-libstdc++ -Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments CMakeFiles/cmTC_5c3d8.dir/CheckFunctionExists.c.o -o cmTC_5c3d8  -lrt  -latomic -lm && :
+ld.lld: error: unable to find library -lrt
+clang: error: linker command failed with exit code 1 (use -v to see invocation)
+ninja: build stopped: subcommand failed.
+
+
+
