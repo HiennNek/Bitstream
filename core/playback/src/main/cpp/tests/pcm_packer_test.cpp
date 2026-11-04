@@ -27,5 +27,12 @@ int main() {
     pack_sample(-0x1234, 16, 2, direct);
     assert(direct[0] == 0xCC && direct[1] == 0xED);
 
+    // Software volume Q1.30 scaling: 0 gain mutes to 0; half gain (1 << 29)
+    // halves the sample amplitude within +/- 1 LSB of TPDF dither.
+    uint32_t dither_state = 0x12345678u;
+    assert(apply_software_volume_q30(0x400000, 24, 0, &dither_state) == 0);
+    int32_t half = apply_software_volume_q30(0x400000, 24, 1 << 29, &dither_state);
+    assert(half >= 0x1FFFFE && half <= 0x200002);
+
     return 0;
 }

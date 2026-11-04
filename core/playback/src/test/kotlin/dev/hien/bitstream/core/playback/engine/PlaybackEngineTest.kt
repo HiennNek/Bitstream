@@ -90,12 +90,24 @@ class PlaybackEngineTest {
         assertEquals(BitPerfectPath.BIT_PERFECT, engine.state.first().path)
 
         engine.setSoftwareVolume(true)
+        engine.setSoftwareVolumeLevel(50)
         backend.emit(BackendEvent.Md5(Integrity.VERIFIED))
 
         val current = engine.state.first()
         assertEquals(BitPerfectPath.SOFTWARE_VOLUME, current.path)
-        assertEquals(VolumeState.Software, current.volume)
+        assertEquals(VolumeState.Software(50), current.volume)
+        assertEquals(50, backend.softwareVolumeLevel)
         assertEquals(Integrity.VERIFIED, current.integrity)
+    }
+
+    @Test
+    fun `disabling gapless suppresses pre-enqueue near track end`() = runTest {
+        val backend = FakeBackend(supportedRates = setOf(96_000))
+        val engine = PlaybackEngine(backend, this)
+        engine.setGapless(false)
+        engine.setQueue(listOf(track(1, 96_000, 24), track(2, 96_000, 24)), 0)
+        backend.advanceToNearEnd()
+        assertTrue(backend.enqueued.isEmpty())
     }
 
     @Test
@@ -143,6 +155,8 @@ internal class FakeBackend(
         private set
     var softwareVolume: Boolean = false
         private set
+    var softwareVolumeLevel: Int = 100
+        private set
     var lastStartFrame: Long = 0L
         private set
 
@@ -188,6 +202,10 @@ internal class FakeBackend(
 
     override fun setSoftwareVolume(enabled: Boolean) {
         softwareVolume = enabled
+    }
+
+    override fun setSoftwareVolumeLevel(level: Int) {
+        softwareVolumeLevel = level
     }
 
     fun finishCurrent(integrity: Integrity = Integrity.VERIFIED) {

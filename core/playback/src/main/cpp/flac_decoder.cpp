@@ -32,6 +32,8 @@ struct DecoderState {
     int channels = 0;
     int subslot_bytes = 0;
     std::atomic<bool>* stop = nullptr;
+    const std::atomic<int32_t>* software_gain_q30 = nullptr;
+    uint32_t dither_rng = 0x9E3779B9u;
 
     bool format_mismatch = false;
     bool failed = false;
@@ -75,10 +77,19 @@ FLAC__StreamDecoderWriteStatus write_callback(
         state->pack_buffer.resize(needed);
     }
 
+    const int32_t gain_q30 = state->software_gain_q30 != nullptr
+                                 ? state->software_gain_q30->load(std::memory_order_relaxed)
+                                 : -1;
     uint8_t* out = state->pack_buffer.data();
     for (uint32_t i = 0; i < header.blocksize; ++i) {
         for (int channel = 0; channel < state->channels; ++channel) {
-            pack_sample(buffer[channel][i], header.bits_per_sample, state->subslot_bytes,
+            int32_t sample = buffer[channel][i];
+            if (gain_q30 >= 0) {
+                sample = apply_software_volume_q30(
+                    sample, static_cast<int>(header.bits_per_sample), gain_q30,
+                    &state->dither_rng);
+            }
+            pack_sample(sample, header.bits_per_sample, state->subslot_bytes,
                         out + static_cast<size_t>(i) * frame_bytes +
                             static_cast<size_t>(channel) * state->subslot_bytes);
         }
@@ -150,8 +161,9 @@ void error_callback(const FLAC__StreamDecoder*, FLAC__StreamDecoderErrorStatus s
 
 FlacDecodeResult decode_flac_fd(int fd, RingBuffer* ring, int sample_rate, int bit_depth,
                                 int channels, int subslot_bytes, int64_t start_frame,
-                                std::atomic<bool>* stop) {
-    FlacDecodeResult result{false, kMd5Unavailable, kFlacOk};
+                                std::atomic<bool>* stop,
+                                const std::atomic<int32_t>* software_gain_q30) {
+    FlacDecodeResult result{false, kMd5Unavailable, kFlacOk, 0};
     if (ring == nullptr || stop == nullptr || bit_depth <= 0 || channels <= 0 ||
         subslot_bytes <= 0 || bit_depth > subslot_bytes * 8) {
         result.error = kFlacFormatMismatch;
@@ -184,6 +196,7 @@ FlacDecodeResult decode_flac_fd(int fd, RingBuffer* ring, int sample_rate, int b
     state.channels = channels;
     state.subslot_bytes = subslot_bytes;
     state.stop = stop;
+    state.software_gain_q30 = software_gain_q30;
 
     FLAC__stream_decoder_set_md5_checking(decoder, false);
     const FLAC__StreamDecoderInitStatus init_status = FLAC__stream_decoder_init_FILE(
@@ -227,6 +240,7 @@ FlacDecodeResult decode_flac_fd(int fd, RingBuffer* ring, int sample_rate, int b
 
     result.complete = state.eof && !state.failed && !stop->load(std::memory_order_acquire);
     result.md5_state = md5_state;
+    result.frames_decoded = state.frames_decoded;
 
     FLAC__stream_decoder_finish(decoder);
     FLAC__stream_decoder_delete(decoder);

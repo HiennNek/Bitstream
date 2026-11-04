@@ -44,6 +44,13 @@ class UsbDeviceManager(
     var lastDeviceKey: String? = lastKey
         private set
 
+    /**
+     * Optional callback invoked synchronously before closing the active
+     * [UsbDeviceHandle] so native `libusb` handles wrapping the connection's
+     * file descriptor are closed before Android closes the descriptor.
+     */
+    var onBeforeClose: (() -> Unit)? = null
+
     private var openHandle: UsbDeviceHandle? = null
     private var pendingHandle: UsbDeviceHandle? = null
 
@@ -106,7 +113,10 @@ class UsbDeviceManager(
         }
 
         if (openHandle?.key != handle.key) {
-            openHandle?.let(source::close)
+            openHandle?.let {
+                onBeforeClose?.invoke()
+                source.close(it)
+            }
             openHandle = null
         }
 
@@ -166,7 +176,10 @@ class UsbDeviceManager(
     }
 
     fun disconnect() {
-        openHandle?.let(source::close)
+        openHandle?.let {
+            onBeforeClose?.invoke()
+            source.close(it)
+        }
         openHandle = null
         _state.value = DacState.NoDevice
     }
@@ -194,7 +207,10 @@ class UsbDeviceManager(
 
     fun onDetached(key: String) {
         if (openHandle?.key == key) {
-            openHandle?.let(source::close)
+            openHandle?.let {
+                onBeforeClose?.invoke()
+                source.close(it)
+            }
             openHandle = null
         }
         val current = _state.value

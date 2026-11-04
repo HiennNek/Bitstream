@@ -39,13 +39,14 @@ enum class PlaybackError {
 
     companion object {
         fun fromNativeCode(code: Int): PlaybackError = when (code) {
+            -1, -101 -> UNSUPPORTED_RATE
+            -2, -9 -> PROTOCOL
+            -3 -> DECODE_FAILED
             -4 -> NO_DEVICE
-            -6 -> BUSY
-            -9 -> STALL
-            -8 -> OVERRUN
-            -99 -> UNDERRUN
-            -1, -7, -11 -> PROTOCOL
-            -101 -> UNSUPPORTED_RATE
+            -5 -> BUSY
+            -6 -> STALL
+            -7 -> OVERRUN
+            -8 -> UNDERRUN
             -102 -> UNSUPPORTED_CHANNELS
             else -> DECODE_FAILED
         }
@@ -145,6 +146,8 @@ interface AudioBackend {
     suspend fun close()
 
     fun setSoftwareVolume(enabled: Boolean)
+
+    fun setSoftwareVolumeLevel(level: Int) {}
 
     fun setHardwareVolume(level: Int) {}
 }

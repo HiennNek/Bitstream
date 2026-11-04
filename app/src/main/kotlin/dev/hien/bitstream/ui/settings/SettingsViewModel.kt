@@ -99,6 +99,7 @@ class AndroidSettingsStore(
         if (_softwareVolumeFlow.value) {
             playbackController.setSoftwareVolume(true)
         }
+        playbackController.setGapless(_gaplessFlow.value)
         scope.launch {
             scanFolderDao.observeFolders().collect { entities ->
                 _folders.value = entities.map { entity ->
@@ -141,6 +142,7 @@ class AndroidSettingsStore(
     override fun setGapless(on: Boolean) {
         prefs.edit().putBoolean(KEY_GAPLESS, on).apply()
         _gaplessFlow.value = on
+        playbackController.setGapless(on)
     }
 
     override fun setTheme(theme: ThemePreference) {

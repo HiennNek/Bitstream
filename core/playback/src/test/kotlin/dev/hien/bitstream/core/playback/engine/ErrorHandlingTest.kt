@@ -35,15 +35,16 @@ class ErrorHandlingTest {
 
     @Test
     fun `native error codes map to typed PlaybackError and user message`() {
+        assertEquals(PlaybackError.UNSUPPORTED_RATE, PlaybackError.fromNativeCode(-1))
+        assertEquals(PlaybackError.PROTOCOL, PlaybackError.fromNativeCode(-2))
+        assertEquals(PlaybackError.DECODE_FAILED, PlaybackError.fromNativeCode(-3))
         assertEquals(PlaybackError.NO_DEVICE, PlaybackError.fromNativeCode(-4))
-        assertEquals(PlaybackError.BUSY, PlaybackError.fromNativeCode(-6))
-        assertEquals(PlaybackError.STALL, PlaybackError.fromNativeCode(-9))
-        assertEquals(PlaybackError.OVERRUN, PlaybackError.fromNativeCode(-8))
-        assertEquals(PlaybackError.UNDERRUN, PlaybackError.fromNativeCode(-99))
-        assertEquals(PlaybackError.PROTOCOL, PlaybackError.fromNativeCode(-7))
-        assertEquals(PlaybackError.UNSUPPORTED_RATE, PlaybackError.fromNativeCode(-101))
+        assertEquals(PlaybackError.BUSY, PlaybackError.fromNativeCode(-5))
+        assertEquals(PlaybackError.STALL, PlaybackError.fromNativeCode(-6))
+        assertEquals(PlaybackError.OVERRUN, PlaybackError.fromNativeCode(-7))
+        assertEquals(PlaybackError.UNDERRUN, PlaybackError.fromNativeCode(-8))
+        assertEquals(PlaybackError.PROTOCOL, PlaybackError.fromNativeCode(-9))
         assertEquals(PlaybackError.UNSUPPORTED_CHANNELS, PlaybackError.fromNativeCode(-102))
-        assertEquals(PlaybackError.DECODE_FAILED, PlaybackError.fromNativeCode(-200))
         assertTrue(PlaybackError.BUSY.userMessage("FiiO JA11").contains("busy", ignoreCase = true))
     }
 }

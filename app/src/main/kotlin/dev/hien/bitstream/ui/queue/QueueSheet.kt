@@ -46,6 +46,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.core.model.RepeatMode
 import dev.hien.bitstream.core.model.Track
@@ -64,9 +67,11 @@ fun QueueSheet(
     onPlay: ((index: Int) -> Unit)? = null,
 ) {
     val container = LocalAppContainer.current
-    val viewModel = remember(container.playbackEngine) {
-        QueueViewModel(container.playbackEngine)
-    }
+    val viewModel: QueueViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer { QueueViewModel(container.playbackEngine) }
+        },
+    )
     val state by viewModel.state.collectAsState()
 
     ModalBottomSheet(
@@ -315,7 +320,7 @@ private fun QueueRow(
                         color = Color.Transparent,
                     ) {
                         Text(
-                            text = formatSourceRateDepth(track.sampleRate, track.bitDepth),
+                            text = formatSourceRateDepth(track.bitDepth, track.sampleRate),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )

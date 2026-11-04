@@ -45,14 +45,21 @@ Java_dev_hien_bitstream_core_playback_native_NativeAudio_nativeEnqueueNext(
         static_cast<int64_t>(handle), fd, sampleRate, bitDepth, channels, subslotBytes));
 }
 
+JNIEXPORT void JNICALL
+Java_dev_hien_bitstream_core_playback_native_NativeAudio_nativeSetSoftwareVolume(
+    JNIEnv*, jobject, jlong handle, jint gainQ30) {
+    bitstream_usb_set_software_volume(static_cast<int64_t>(handle),
+                                      static_cast<int32_t>(gainQ30));
+}
+
 JNIEXPORT jlongArray JNICALL
 Java_dev_hien_bitstream_core_playback_native_NativeAudio_nativeStats(
     JNIEnv* env, jobject, jlong handle) {
-    int64_t values[5] = {};
+    int64_t values[7] = {};
     bitstream_usb_stats(static_cast<int64_t>(handle), values);
-    jlongArray result = env->NewLongArray(5);
+    jlongArray result = env->NewLongArray(7);
     if (result != nullptr) {
-        env->SetLongArrayRegion(result, 0, 5, values);
+        env->SetLongArrayRegion(result, 0, 7, values);
     }
     return result;
 }

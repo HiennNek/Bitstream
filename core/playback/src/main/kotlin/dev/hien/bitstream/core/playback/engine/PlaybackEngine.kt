@@ -72,7 +72,11 @@ interface PlaybackController {
 
     fun setSoftwareVolume(on: Boolean) = Unit
 
+    fun setSoftwareVolumeLevel(level: Int) = Unit
+
     fun setHardwareVolume(level: Int) = Unit
+
+    fun setGapless(on: Boolean) = Unit
 
     fun stop() = Unit
 }
@@ -106,6 +110,8 @@ class PlaybackEngine(
     override val dacName: StateFlow<String?> = _dacName.asStateFlow()
 
     private var softwareVolumeEnabled: Boolean = false
+    private var softwareVolumeLevel: Int = 100
+    private var gaplessEnabled: Boolean = true
     private var lastHardwareVolume: VolumeState = VolumeState.Fixed
     private var gaplessEnqueuedTrackId: Long? = null
     private var resumeFrame: Long = 0L
@@ -335,6 +341,7 @@ class PlaybackEngine(
         enqueueCommand {
             softwareVolumeEnabled = on
             backend.setSoftwareVolume(on)
+            backend.setSoftwareVolumeLevel(softwareVolumeLevel)
             _state.update { current ->
                 val activePath = when {
                     current.status == PlaybackStatus.NO_DAC ||
@@ -345,11 +352,22 @@ class PlaybackEngine(
                     else -> BitPerfectPath.BIT_PERFECT
                 }
                 val activeVolume = if (on) {
-                    VolumeState.Software
+                    VolumeState.Software(softwareVolumeLevel)
                 } else {
                     lastHardwareVolume
                 }
                 current.copy(path = activePath, volume = activeVolume)
+            }
+        }
+    }
+
+    override fun setSoftwareVolumeLevel(level: Int) {
+        enqueueCommand {
+            val clamped = level.coerceIn(0, 100)
+            softwareVolumeLevel = clamped
+            backend.setSoftwareVolumeLevel(clamped)
+            if (softwareVolumeEnabled) {
+                _state.update { it.copy(volume = VolumeState.Software(clamped)) }
             }
         }
     }
@@ -361,6 +379,15 @@ class PlaybackEngine(
             backend.setHardwareVolume(clamped)
             if (!softwareVolumeEnabled) {
                 _state.update { it.copy(volume = lastHardwareVolume) }
+            }
+        }
+    }
+
+    override fun setGapless(on: Boolean) {
+        enqueueCommand {
+            gaplessEnabled = on
+            if (!on) {
+                gaplessEnqueuedTrackId = null
             }
         }
     }
@@ -463,7 +490,7 @@ class PlaybackEngine(
                     BitPerfectPath.BIT_PERFECT
                 }
                 val volume = if (softwareVolumeEnabled) {
-                    VolumeState.Software
+                    VolumeState.Software(softwareVolumeLevel)
                 } else {
                     result.volume
                 }
@@ -649,6 +676,7 @@ class PlaybackEngine(
     }
 
     private suspend fun maybeEnqueueGapless(currentTrack: Track, positionMs: Long) {
+        if (!gaplessEnabled) return
         if (gaplessEnqueuedTrackId != null) return
         if (currentTrack.durationMs <= 0L) return
         val remainingMs = currentTrack.durationMs - positionMs

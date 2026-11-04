@@ -14,7 +14,7 @@ class StatusChipTest {
 
     @Test
     fun `software volume demotes path`() {
-        assertEquals("Software volume", pathLabel(BitPerfectPath.SOFTWARE_VOLUME, VolumeState.Software))
+        assertEquals("Software volume", pathLabel(BitPerfectPath.SOFTWARE_VOLUME, VolumeState.Software()))
     }
 
     @Test
@@ -25,7 +25,7 @@ class StatusChipTest {
     @Test
     fun `verified md5 with software volume shows decode verified`() {
         assertEquals("MD5 verified", integrityLabel(Integrity.VERIFIED, VolumeState.Hardware(80)))
-        assertEquals("Decode verified", integrityLabel(Integrity.VERIFIED, VolumeState.Software))
+        assertEquals("Decode verified", integrityLabel(Integrity.VERIFIED, VolumeState.Software()))
     }
 
     @Test

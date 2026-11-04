@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.model.PlaybackState
+import dev.hien.bitstream.core.playback.engine.PlaybackError
 import dev.hien.bitstream.core.playback.usb.DacState
 import dev.hien.bitstream.core.playback.usb.SyncType
 import java.util.Locale
@@ -64,7 +66,19 @@ data class DiagnosticsSummary(
 fun buildDiagnosticsSummary(
     dacState: DacState,
     playbackState: PlaybackState,
+    ringFillPercent: Int = 0,
+    lastNativeError: Int = 0,
 ): DiagnosticsSummary {
+    val errorSummary = when {
+        lastNativeError != 0 -> "Error $lastNativeError (${PlaybackError.fromNativeCode(lastNativeError)})"
+        dacState is DacState.Error -> dacState.reason
+        else -> "0 errors"
+    }
+    val ringSummary = when {
+        ringFillPercent > 0 -> "$ringFillPercent%"
+        playbackState.track != null -> "0% (draining)"
+        else -> "0% (idle)"
+    }
     val connected = dacState as? DacState.Connected
     if (connected == null) {
         return DiagnosticsSummary(
@@ -74,9 +88,9 @@ fun buildDiagnosticsSummary(
             syncType = "N/A",
             subslotAndValidBits = "N/A",
             sampleRate = "N/A",
-            ringFill = "0% (idle)",
-            urbStats = "0 underruns",
-            libusbErrors = (dacState as? DacState.Error)?.reason ?: "0 errors",
+            ringFill = ringSummary,
+            urbStats = "${playbackState.underruns} underruns",
+            libusbErrors = errorSummary,
             descriptorDump = "",
         )
     }
@@ -110,9 +124,9 @@ fun buildDiagnosticsSummary(
         syncType = syncLabel,
         subslotAndValidBits = subslotText,
         sampleRate = rateText,
-        ringFill = if (playbackState.track != null) "2.0 s SPSC ring active" else "0% (idle)",
-        urbStats = "8 URBs × 10 pkts • ${playbackState.underruns} underruns",
-        libusbErrors = "0 errors",
+        ringFill = ringSummary,
+        urbStats = "4 URBs × 16 pkts • ${playbackState.underruns} underruns",
+        libusbErrors = errorSummary,
         descriptorDump = formatDescriptorHex(device.rawDescriptor),
     )
 }
@@ -125,8 +139,15 @@ fun DiagnosticsScreen(
     val container = LocalAppContainer.current
     val dacState by container.usbDeviceManager.state.collectAsState()
     val playbackState by container.playbackEngine.state.collectAsState()
-    val summary = remember(dacState, playbackState) {
-        buildDiagnosticsSummary(dacState, playbackState)
+    val ringFillPercent by container.audioBackend.ringFillPercent.collectAsState()
+    val lastNativeError by container.audioBackend.lastNativeError.collectAsState()
+    val summary = remember(dacState, playbackState, ringFillPercent, lastNativeError) {
+        buildDiagnosticsSummary(
+            dacState = dacState,
+            playbackState = playbackState,
+            ringFillPercent = ringFillPercent,
+            lastNativeError = lastNativeError,
+        )
     }
     val context = LocalContext.current
     var copied by remember { mutableStateOf(false) }
@@ -165,6 +186,29 @@ fun DiagnosticsScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                if (dacState is DacState.PermissionNeeded) {
+                    val needed = dacState as DacState.PermissionNeeded
+                    item {
+                        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = "USB permission required for ${needed.name}",
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Button(onClick = { container.usbDeviceManager.connectByKey(needed.key) }) {
+                                    Text("Grant permission")
+                                }
+                            }
+                        }
+                    }
+                }
+
                 item {
                     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
                         Column(

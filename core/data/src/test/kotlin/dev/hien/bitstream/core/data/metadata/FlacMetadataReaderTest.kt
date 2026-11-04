@@ -56,6 +56,27 @@ class FlacMetadataReaderTest {
         assertNull(tags.picture)
         assertNull(tags.vorbis["COVERARTMIME"])
     }
+
+    @Test
+    fun prefersFrontCoverPictureType3OverOtherPictures() {
+        val backCover = byteArrayOf(1, 2, 3)
+        val frontCover = byteArrayOf(4, 5, 6, 7)
+        val out = ByteArrayOutputStream()
+        out.write("fLaC".toByteArray(Charsets.US_ASCII))
+        val streamInfo = streamInfoBlock(96_000, 2, 24, ByteArray(16))
+        out.write(blockHeader(type = 0, length = streamInfo.size, last = false))
+        out.write(streamInfo)
+        val p1 = pictureBlock(backCover, "image/jpeg", pictureType = 4)
+        out.write(blockHeader(type = 6, length = p1.size, last = false))
+        out.write(p1)
+        val p2 = pictureBlock(frontCover, "image/png", pictureType = 3)
+        out.write(blockHeader(type = 6, length = p2.size, last = true))
+        out.write(p2)
+
+        val tags = FlacMetadataReader().read(out.toByteArray().inputStream())
+        assertArrayEquals(frontCover, tags.picture)
+        assertEquals(listOf("image/png"), tags.vorbis["COVERARTMIME"])
+    }
 }
 
 private fun flacBytes(
@@ -138,10 +159,10 @@ private fun vorbisBlock(comments: List<Pair<String, String>>): ByteArray {
     return out.toByteArray()
 }
 
-private fun pictureBlock(data: ByteArray, mime: String): ByteArray {
+private fun pictureBlock(data: ByteArray, mime: String, pictureType: Int = 3): ByteArray {
     val out = ByteArrayOutputStream()
     val mimeBytes = mime.toByteArray(Charsets.US_ASCII)
-    out.writeBe32(3) // front cover
+    out.writeBe32(pictureType)
     out.writeBe32(mimeBytes.size)
     out.write(mimeBytes)
     out.writeBe32(0) // empty description

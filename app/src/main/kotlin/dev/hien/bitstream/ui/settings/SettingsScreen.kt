@@ -39,6 +39,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.playback.usb.DacState
@@ -46,9 +49,11 @@ import dev.hien.bitstream.core.playback.usb.DacState
 @Composable
 fun SettingsRoute(onUsbDiagnostics: () -> Unit) {
     val container = LocalAppContainer.current
-    val viewModel = remember(container.settingsStore) {
-        SettingsViewModel(container.settingsStore)
-    }
+    val viewModel: SettingsViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer { SettingsViewModel(container.settingsStore) }
+        },
+    )
     val state by viewModel.state.collectAsState()
     val dacState by container.usbDeviceManager.state.collectAsState()
     val context = LocalContext.current

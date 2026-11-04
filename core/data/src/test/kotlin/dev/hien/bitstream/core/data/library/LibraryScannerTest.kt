@@ -83,6 +83,32 @@ class LibraryScannerTest {
         )
         assertFalse(first.tracks.first().id == 0L)
     }
+
+    @Test
+    fun scannerReusesUnchangedExistingTracksAndFallsBackToFolderCover() = runTest {
+        val coverBytes = byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xE0.toByte())
+        val tree = FakeFileTree(
+            root = dir("Music"),
+            files = mapOf(
+                "Music/Album/01.flac" to flacBytes(title = "One"),
+                "Music/Album/cover.jpg" to coverBytes,
+            ),
+            lastModified = 1_700_000_000_000L,
+        )
+        val scanner = LibraryScanner(tree, FlacMetadataReader())
+
+        val first = scanner.scan(listOf(tree.root))
+        val track = first.tracks.single()
+        assertEquals(LibraryScanner.sha256Hex(coverBytes), track.artworkUri)
+        val opensAfterFirst = tree.openCount
+
+        val second = scanner.scan(
+            roots = listOf(tree.root),
+            existing = mapOf(track.uri to track),
+        )
+        assertEquals(track, second.tracks.single())
+        assertEquals(opensAfterFirst, tree.openCount)
+    }
 }
 
 private class FakeNode(
@@ -98,8 +124,11 @@ private class FakeNode(
 private class FakeFileTree(
     val root: FakeNode,
     private val files: Map<String, ByteArray>,
+    private val lastModified: Long = 0L,
 ) : FileTree {
     private val nodesByUri = mutableMapOf(root.uri to root)
+    var openCount: Int = 0
+        private set
 
     init {
         files.keys.forEach { path ->
@@ -118,6 +147,7 @@ private class FakeFileTree(
                 name = fileName,
                 uri = uri,
                 size = files.getValue(path).size.toLong(),
+                lastModified = lastModified,
                 isDirectory = false,
             )
             nodesByUri[uri] = node
@@ -127,8 +157,10 @@ private class FakeFileTree(
 
     override fun children(node: FileNode): List<FileNode> = (node as FakeNode).children
 
-    override fun open(node: FileNode): InputStream =
-        files.getValue(node.uri.removePrefix("content://test/")).inputStream()
+    override fun open(node: FileNode): InputStream {
+        openCount += 1
+        return files.getValue(node.uri.removePrefix("content://test/")).inputStream()
+    }
 }
 
 private fun dir(name: String): FakeNode =

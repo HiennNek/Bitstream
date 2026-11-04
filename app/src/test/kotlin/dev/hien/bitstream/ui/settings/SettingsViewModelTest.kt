@@ -42,6 +42,18 @@ class SettingsViewModelTest {
         assertEquals(ThemePreference.DARK, vm.state.first().theme)
         assertFalse(vm.state.first().dynamicColor)
     }
+
+    @Test
+    fun `buildDiagnosticsSummary reports live ring fill and native error code`() {
+        val summary = buildDiagnosticsSummary(
+            dacState = dev.hien.bitstream.core.playback.usb.DacState.NoDevice,
+            playbackState = dev.hien.bitstream.core.model.PlaybackState(),
+            ringFillPercent = 42,
+            lastNativeError = -6,
+        )
+        assertEquals("42%", summary.ringFill)
+        assertTrue(summary.libusbErrors.contains("-6"))
+    }
 }
 
 private class FakeSettingsStore : SettingsStore {

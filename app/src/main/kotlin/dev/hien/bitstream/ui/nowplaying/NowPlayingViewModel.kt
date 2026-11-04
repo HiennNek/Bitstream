@@ -135,6 +135,10 @@ class NowPlayingViewModel(
         controller.setSoftwareVolume(enabled)
     }
 
+    fun setSoftwareVolumeLevel(level: Int) {
+        controller.setSoftwareVolumeLevel(level)
+    }
+
     override fun onCleared() {
         vmScope.cancel()
         super.onCleared()

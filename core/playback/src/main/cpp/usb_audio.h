@@ -29,11 +29,16 @@ int bitstream_usb_play_file(int64_t handle, int fd, int64_t start_frame, int sam
 int bitstream_usb_enqueue_next(int64_t handle, int fd, int sample_rate, int bit_depth,
                                int channels, int subslot_bytes);
 
+void bitstream_usb_set_software_volume(int64_t handle, int32_t gain_q30);
+
 void bitstream_usb_stop(int64_t handle);
 
 void bitstream_usb_close(int64_t handle);
 
-/** Fills [out] with state, underruns, framesWritten, md5State, errorCode. */
+/**
+ * Fills [out] with 7 values:
+ * `[state, underruns, framesWritten, md5State, errorCode, trackIndex, ringFillPercent]`.
+ */
 void bitstream_usb_stats(int64_t handle, int64_t* out);
 
 }

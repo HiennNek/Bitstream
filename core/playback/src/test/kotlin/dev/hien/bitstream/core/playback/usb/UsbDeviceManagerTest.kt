@@ -77,15 +77,18 @@ class UsbDeviceManagerTest {
     }
 
     @Test
-    fun detachClearsConnectedState() {
-        val source = FakeSource(listOf(handle("a", 1, 2)))
+    fun detachClearsConnectedStateAndRunsOnBeforeCloseBeforeSourceClose() {
+        val events = mutableListOf<String>()
+        val source = FakeSource(listOf(handle("a", 1, 2)), onClose = { events += "source.close" })
         val manager = UsbDeviceManager(source, UacDescriptorParser())
+        manager.onBeforeClose = { events += "onBeforeClose" }
         manager.connect(handle("a", 1, 2))
 
         manager.onDetached("a")
 
         assertTrue(manager.state.value is DacState.NoDevice)
         assertEquals("a", source.closed)
+        assertEquals(listOf("onBeforeClose", "source.close"), events)
     }
 
     @Test
@@ -138,6 +141,7 @@ private class FakeSource(
     private val handles: List<UsbDeviceHandle>,
     private val rates: List<Int> = listOf(44_100, 48_000, 96_000),
     private val volume: VolumeRange? = VolumeRange(-1536, 0, 256),
+    private val onClose: (() -> Unit)? = null,
 ) : UsbDeviceSource {
     private val eventFlow = MutableSharedFlow<UsbEvent>(extraBufferCapacity = 8)
     var requested: String? = null
@@ -152,6 +156,7 @@ private class FakeSource(
     }
 
     override fun close(handle: UsbDeviceHandle) {
+        onClose?.invoke()
         closed = handle.key
     }
 

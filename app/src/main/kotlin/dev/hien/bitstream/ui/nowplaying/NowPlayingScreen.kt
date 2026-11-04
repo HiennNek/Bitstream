@@ -65,6 +65,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import coil3.compose.AsyncImage
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
@@ -89,12 +92,16 @@ fun NowPlayingRoute(
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
 ) {
     val container = LocalAppContainer.current
-    val viewModel = remember(container.playbackEngine) {
-        NowPlayingViewModel(container.playbackEngine)
-    }
-    val queueViewModel = remember(container.playbackEngine) {
-        QueueViewModel(container.playbackEngine)
-    }
+    val viewModel: NowPlayingViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer { NowPlayingViewModel(container.playbackEngine) }
+        },
+    )
+    val queueViewModel: QueueViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer { QueueViewModel(container.playbackEngine) }
+        },
+    )
     val state by viewModel.state.collectAsState()
     val queueState by queueViewModel.state.collectAsState()
     val dacState by container.usbDeviceManager.state.collectAsState()
@@ -117,6 +124,7 @@ fun NowPlayingRoute(
             onCycleRepeat = viewModel::cycleRepeat,
             onHardwareVolume = viewModel::setHardwareVolume,
             onSoftwareVolume = viewModel::setSoftwareVolume,
+            onSoftwareVolumeLevel = viewModel::setSoftwareVolumeLevel,
             onQueue = {
                 showQueue = !showQueue
                 onQueue()
@@ -175,9 +183,11 @@ fun NowPlayingScreen(
     onOutput: () -> Unit,
 ) {
     val container = LocalAppContainer.current
-    val viewModel = remember(container.playbackEngine) {
-        NowPlayingViewModel(container.playbackEngine)
-    }
+    val viewModel: NowPlayingViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer { NowPlayingViewModel(container.playbackEngine) }
+        },
+    )
     val state by viewModel.state.collectAsState()
     val dacState by container.usbDeviceManager.state.collectAsState()
     var showInternalOutputSheet by rememberSaveable { mutableStateOf(false) }
@@ -197,6 +207,7 @@ fun NowPlayingScreen(
         onCycleRepeat = viewModel::cycleRepeat,
         onHardwareVolume = viewModel::setHardwareVolume,
         onSoftwareVolume = viewModel::setSoftwareVolume,
+        onSoftwareVolumeLevel = viewModel::setSoftwareVolumeLevel,
         onQueue = {
             showInternalQueueSheet = true
             onQueue()
@@ -236,6 +247,7 @@ fun NowPlayingContent(
     onCycleRepeat: () -> Unit,
     onHardwareVolume: (Int) -> Unit,
     onSoftwareVolume: (Boolean) -> Unit,
+    onSoftwareVolumeLevel: (Int) -> Unit = {},
     onQueue: () -> Unit,
     onOutput: () -> Unit,
     sharedTransitionScope: SharedTransitionScope? = null,
@@ -346,6 +358,7 @@ fun NowPlayingContent(
                             onCycleRepeat = onCycleRepeat,
                             onHardwareVolume = onHardwareVolume,
                             onSoftwareVolume = onSoftwareVolume,
+                            onSoftwareVolumeLevel = onSoftwareVolumeLevel,
                             onOutput = onOutput,
                         )
                     }
@@ -382,6 +395,7 @@ fun NowPlayingContent(
                         onCycleRepeat = onCycleRepeat,
                         onHardwareVolume = onHardwareVolume,
                         onSoftwareVolume = onSoftwareVolume,
+                        onSoftwareVolumeLevel = onSoftwareVolumeLevel,
                         onOutput = onOutput,
                     )
                 }
@@ -401,6 +415,7 @@ private fun NowPlayingControlsPane(
     onCycleRepeat: () -> Unit,
     onHardwareVolume: (Int) -> Unit,
     onSoftwareVolume: (Boolean) -> Unit,
+    onSoftwareVolumeLevel: (Int) -> Unit,
     onOutput: () -> Unit,
 ) {
     val track = state.track
@@ -467,6 +482,7 @@ private fun NowPlayingControlsPane(
             volume = state.volume,
             onHardwareVolume = onHardwareVolume,
             onSoftwareVolume = onSoftwareVolume,
+            onSoftwareVolumeLevel = onSoftwareVolumeLevel,
         )
 
         if (state.notices.isNotEmpty()) {
@@ -777,6 +793,7 @@ private fun VolumeSection(
     volume: VolumeState?,
     onHardwareVolume: (Int) -> Unit,
     onSoftwareVolume: (Boolean) -> Unit,
+    onSoftwareVolumeLevel: (Int) -> Unit = {},
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -822,12 +839,12 @@ private fun VolumeSection(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Software volume (not bit-perfect)",
+                                text = "Software volume (${volume.level}%) — not bit-perfect",
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.tertiary,
                             )
                             Text(
-                                text = "Disable software volume to restore bit-perfect output.",
+                                text = "Q1.30 digital attenuation + TPDF dither active.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -839,6 +856,15 @@ private fun VolumeSection(
                             Text("Restore")
                         }
                     }
+                    Slider(
+                        value = volume.level / 100f,
+                        onValueChange = { fraction ->
+                            onSoftwareVolumeLevel((fraction * 100f).toInt().coerceIn(0, 100))
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("software_volume_slider"),
+                    )
                 }
 
                 VolumeState.Fixed, null -> {

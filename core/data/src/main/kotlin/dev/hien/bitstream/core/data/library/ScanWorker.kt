@@ -12,6 +12,7 @@ import dev.hien.bitstream.core.data.db.BitstreamDatabase
 import dev.hien.bitstream.core.data.db.ScanFolderEntity
 import dev.hien.bitstream.core.data.metadata.FlacMetadataReader
 import dev.hien.bitstream.core.data.toEntity
+import dev.hien.bitstream.core.data.toModel
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.first
@@ -34,7 +35,11 @@ class ScanWorker(
             } else {
                 database.scanFolderDao().observeFolders().first().map { it.treeUri }
             }
-            if (folders.isEmpty()) return Result.success()
+
+            val existingTracks = database.trackDao()
+                .observeTracks()
+                .first()
+                .associate { entity -> entity.uri to entity.toModel() }
 
             val tree = DocumentFileTree(applicationContext)
             val artwork = ArtworkCache(applicationContext)
@@ -48,7 +53,10 @@ class ScanWorker(
             val scannedIds = mutableSetOf<Long>()
             for (treeUri in folders) {
                 val root = tree.root(treeUri) ?: continue
-                val result = scanner.scan(listOf(root)) { count ->
+                val result = scanner.scan(
+                    roots = listOf(root),
+                    existing = existingTracks,
+                ) { count ->
                     setProgressAsync(workDataOf(KEY_PROGRESS to count))
                 }
 

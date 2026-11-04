@@ -18,7 +18,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
@@ -36,6 +39,12 @@ class NativeAudioBackend(
     private val _events = MutableSharedFlow<BackendEvent>(extraBufferCapacity = 32)
     override val events: Flow<BackendEvent> = _events.asSharedFlow()
 
+    private val _ringFillPercent = MutableStateFlow(0)
+    val ringFillPercent: StateFlow<Int> = _ringFillPercent.asStateFlow()
+
+    private val _lastNativeError = MutableStateFlow(0)
+    val lastNativeError: StateFlow<Int> = _lastNativeError.asStateFlow()
+
     private var nativeHandle: Long = 0L
     private var openedDeviceFd: Int = -1
     private var openedSampleRate: Int = 0
@@ -45,17 +54,21 @@ class NativeAudioBackend(
     private var currentTrack: Track? = null
     private var currentFormat: AudioFormat? = null
     private var currentUacFormat: UacFormat? = null
+    private val enqueuedTracks = ArrayDeque<Pair<Track, AudioFormat>>()
     private var startFrameOffset: Long = 0L
     private var lastFramesWritten: Long = 0L
     private var lastUnderruns: Long = 0L
+    private var lastTrackIndex: Long = 0L
     private var lastIntegrity: Integrity = Integrity.UNAVAILABLE
     private var softwareVolumeEnabled: Boolean = false
+    private var softwareVolumeLevel: Int = 100
     private var hardwareVolumeLevel: Int = 100
     private var pollJob: Job? = null
     private var wasDacConnected: Boolean = false
     private var lastDacName: String? = null
 
     init {
+        usbDeviceManager.onBeforeClose = ::closeNativeHandle
         scope.launch {
             usbDeviceManager.state.collect { dacState ->
                 when (dacState) {
@@ -166,12 +179,13 @@ class NativeAudioBackend(
             openedSubslotBytes = matchingFormat.subslotBytes
         }
 
+        applyNativeSoftwareVolume()
         currentTrack = track
         currentFormat = format
         currentUacFormat = matchingFormat
 
         val volume = when {
-            softwareVolumeEnabled -> VolumeState.Software
+            softwareVolumeEnabled -> VolumeState.Software(softwareVolumeLevel)
             device.volume != null -> VolumeState.Hardware(hardwareVolumeLevel)
             else -> VolumeState.Fixed
         }
@@ -216,14 +230,19 @@ class NativeAudioBackend(
 
         if (result != 0) {
             _events.tryEmit(
-                BackendEvent.Failed("${track?.title ?: uri} could not be decoded (code $result)."),
+                BackendEvent.Failed(
+                    reason = "${track?.title ?: uri} could not be decoded (code $result).",
+                    error = PlaybackError.fromNativeCode(result),
+                ),
             )
             return
         }
 
+        enqueuedTracks.clear()
         startFrameOffset = startFrame
         lastFramesWritten = 0L
         lastUnderruns = 0L
+        lastTrackIndex = 0L
         lastIntegrity = Integrity.UNAVAILABLE
         startPolling(handle, format.sampleRate)
     }
@@ -247,12 +266,18 @@ class NativeAudioBackend(
         } finally {
             runCatching { pfd.close() }
         }
-        return result == 0
+        if (result == 0) {
+            enqueuedTracks.addLast(track to format)
+            return true
+        }
+        return false
     }
 
     override suspend fun pause() {
         pollJob?.cancel()
         pollJob = null
+        enqueuedTracks.clear()
+        _ringFillPercent.value = 0
         if (nativeHandle != 0L) {
             NativeAudio.nativeStop(nativeHandle)
         }
@@ -267,8 +292,11 @@ class NativeAudioBackend(
     override suspend fun stop() {
         pollJob?.cancel()
         pollJob = null
+        enqueuedTracks.clear()
         startFrameOffset = 0L
         lastFramesWritten = 0L
+        lastTrackIndex = 0L
+        _ringFillPercent.value = 0
         if (nativeHandle != 0L) {
             NativeAudio.nativeStop(nativeHandle)
         }
@@ -280,11 +308,28 @@ class NativeAudioBackend(
 
     override fun setSoftwareVolume(enabled: Boolean) {
         softwareVolumeEnabled = enabled
+        applyNativeSoftwareVolume()
+    }
+
+    override fun setSoftwareVolumeLevel(level: Int) {
+        softwareVolumeLevel = level.coerceIn(0, 100)
+        applyNativeSoftwareVolume()
     }
 
     override fun setHardwareVolume(level: Int) {
         hardwareVolumeLevel = level.coerceIn(0, 100)
         usbDeviceManager.setHardwareVolume(hardwareVolumeLevel)
+    }
+
+    private fun applyNativeSoftwareVolume() {
+        val handle = nativeHandle
+        if (handle == 0L) return
+        val gainQ30 = if (!softwareVolumeEnabled) {
+            -1
+        } else {
+            ((softwareVolumeLevel / 100.0) * Q30_UNITY).toInt().coerceIn(0, Q30_UNITY)
+        }
+        NativeAudio.nativeSetSoftwareVolume(handle, gainQ30)
     }
 
     private fun startPolling(handle: Long, sampleRate: Int) {
@@ -298,6 +343,35 @@ class NativeAudioBackend(
                     val framesWritten = stats[2]
                     val md5State = stats[3]
                     val errorCode = stats[4]
+                    val trackIndex = if (stats.size >= 6) stats[5] else 0L
+                    val ringFill = if (stats.size >= 7) stats[6].toInt() else 0
+
+                    _ringFillPercent.value = ringFill
+                    _lastNativeError.value = errorCode.toInt()
+
+                    while (lastTrackIndex < trackIndex) {
+                        val finishedIntegrity = if (lastIntegrity != Integrity.UNAVAILABLE) {
+                            lastIntegrity
+                        } else {
+                            mapIntegrity(md5State)
+                        }
+                        _events.emit(BackendEvent.Md5(finishedIntegrity))
+                        _events.emit(
+                            BackendEvent.Ended(
+                                integrity = finishedIntegrity,
+                                framesWritten = startFrameOffset + lastFramesWritten,
+                            ),
+                        )
+                        val next = enqueuedTracks.removeFirstOrNull()
+                        if (next != null) {
+                            currentTrack = next.first
+                            currentFormat = next.second
+                        }
+                        startFrameOffset = 0L
+                        lastFramesWritten = 0L
+                        lastIntegrity = Integrity.UNAVAILABLE
+                        lastTrackIndex += 1
+                    }
 
                     lastFramesWritten = framesWritten
                     if (underruns != lastUnderruns) {
@@ -323,6 +397,7 @@ class NativeAudioBackend(
 
                     when (state) {
                         STATE_ENDED -> {
+                            _ringFillPercent.value = 0
                             val integrity = mapIntegrity(md5State)
                             _events.emit(BackendEvent.Md5(integrity))
                             _events.emit(
@@ -335,6 +410,7 @@ class NativeAudioBackend(
                         }
 
                         STATE_ERROR -> {
+                            _ringFillPercent.value = 0
                             val mapped = PlaybackError.fromNativeCode(errorCode.toInt())
                             if (mapped == PlaybackError.NO_DEVICE) {
                                 closeNativeHandle()
@@ -382,6 +458,8 @@ class NativeAudioBackend(
     private fun closeNativeHandle() {
         pollJob?.cancel()
         pollJob = null
+        enqueuedTracks.clear()
+        _ringFillPercent.value = 0
         val handle = nativeHandle
         nativeHandle = 0L
         openedDeviceFd = -1
@@ -401,5 +479,6 @@ class NativeAudioBackend(
         const val STATE_ERROR = 3L
         const val MD5_VERIFIED = 1L
         const val MD5_FAILED = 2L
+        const val Q30_UNITY = 1 shl 30
     }
 }

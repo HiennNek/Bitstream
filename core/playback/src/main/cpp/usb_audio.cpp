@@ -55,6 +55,11 @@ struct PlayFile {
     int subslot_bytes = 0;
 };
 
+struct TrackBoundary {
+    uint64_t end_frame = 0;
+    int md5_state = kMd5Unavailable;
+};
+
 struct UsbAudioHandle {
     libusb_context* context = nullptr;
     libusb_device_handle* device = nullptr;
@@ -79,6 +84,11 @@ struct UsbAudioHandle {
     RingBuffer* ring = nullptr;
     std::mutex next_mutex;
     std::deque<PlayFile> next_files;
+    std::deque<TrackBoundary> boundaries;
+    uint64_t total_decoded_frames = 0;
+    uint64_t current_track_base_frame = 0;
+    int64_t enqueued_tracks = 0;
+    int64_t active_track_index = 0;
 
     std::mutex mutex;
     std::thread worker;
@@ -87,6 +97,7 @@ struct UsbAudioHandle {
     std::atomic<bool> running{false};
     std::atomic<bool> stop{false};
     std::atomic<bool> decoder_done{true};
+    std::atomic<int32_t> software_gain_q30{-1};
     std::atomic<uint64_t> frames_written{0};
     std::atomic<uint32_t> underruns{0};
     std::atomic<int> state{kStateIdle};
@@ -520,10 +531,9 @@ void decoder_thread(UsbAudioHandle* handle) {
             handle->next_files.pop_front();
         }
 
-        handle->md5_state.store(kMd5Unavailable, std::memory_order_release);
         const FlacDecodeResult result = decode_flac_fd(
             file.fd, handle->ring, file.sample_rate, file.bit_depth, file.channels,
-            file.subslot_bytes, file.start_frame, &handle->stop);
+            file.subslot_bytes, file.start_frame, &handle->stop, &handle->software_gain_q30);
         close(file.fd);
 
         if (!result.complete) {
@@ -533,7 +543,13 @@ void decoder_thread(UsbAudioHandle* handle) {
             }
             break;
         }
-        handle->md5_state.store(result.md5_state, std::memory_order_release);
+        {
+            std::lock_guard<std::mutex> lock(handle->next_mutex);
+            handle->total_decoded_frames += result.frames_decoded;
+            handle->boundaries.push_back(
+                TrackBoundary{handle->total_decoded_frames, result.md5_state});
+            handle->md5_state.store(result.md5_state, std::memory_order_release);
+        }
     }
     handle->decoder_done.store(true, std::memory_order_release);
 }
@@ -897,6 +913,11 @@ extern "C" int bitstream_usb_play_file(int64_t raw_handle, int fd, int64_t start
     {
         std::lock_guard<std::mutex> next_lock(handle->next_mutex);
         handle->next_files.clear();
+        handle->boundaries.clear();
+        handle->total_decoded_frames = 0;
+        handle->current_track_base_frame = 0;
+        handle->enqueued_tracks = 1;
+        handle->active_track_index = 0;
         handle->next_files.push_back(PlayFile{owned_fd, start_frame, sample_rate, bit_depth,
                                               channels, subslot_bytes});
     }
@@ -917,7 +938,8 @@ extern "C" int bitstream_usb_enqueue_next(int64_t raw_handle, int fd, int sample
         !format_matches(handle, sample_rate, bit_depth, channels, subslot_bytes)) {
         return kUsbErrFormatMismatch;
     }
-    if (handle->decoder_done.load(std::memory_order_acquire)) {
+    if (!handle->running.load(std::memory_order_acquire) ||
+        handle->stop.load(std::memory_order_acquire)) {
         return kUsbErrBusy;
     }
 
@@ -926,10 +948,34 @@ extern "C" int bitstream_usb_enqueue_next(int64_t raw_handle, int fd, int sample
         return kUsbErrIo;
     }
 
-    std::lock_guard<std::mutex> lock(handle->next_mutex);
-    handle->next_files.push_back(PlayFile{owned_fd, 0, sample_rate, bit_depth, channels,
-                                          subslot_bytes});
+    std::lock_guard<std::mutex> lock(handle->mutex);
+    if (!handle->running.load(std::memory_order_acquire) ||
+        handle->stop.load(std::memory_order_acquire)) {
+        close(owned_fd);
+        return kUsbErrBusy;
+    }
+    {
+        std::lock_guard<std::mutex> next_lock(handle->next_mutex);
+        handle->next_files.push_back(PlayFile{owned_fd, 0, sample_rate, bit_depth, channels,
+                                              subslot_bytes});
+        handle->enqueued_tracks += 1;
+    }
+    if (handle->decoder_done.load(std::memory_order_acquire)) {
+        if (handle->decoder_worker.joinable()) {
+            handle->decoder_worker.join();
+        }
+        handle->decoder_done.store(false, std::memory_order_release);
+        handle->decoder_worker = std::thread(decoder_thread, handle);
+    }
     return kUsbOk;
+}
+
+extern "C" void bitstream_usb_set_software_volume(int64_t raw_handle, int32_t gain_q30) {
+    auto* handle = reinterpret_cast<UsbAudioHandle*>(raw_handle);
+    if (handle == nullptr) {
+        return;
+    }
+    handle->software_gain_q30.store(gain_q30, std::memory_order_relaxed);
 }
 
 extern "C" void bitstream_usb_stop(int64_t raw_handle) {
@@ -950,9 +996,43 @@ extern "C" void bitstream_usb_stats(int64_t raw_handle, int64_t* out) {
     if (handle == nullptr || out == nullptr) {
         return;
     }
+    const uint64_t raw_written = handle->frames_written.load(std::memory_order_acquire);
+    int64_t relative_written = static_cast<int64_t>(raw_written);
+    int md5 = handle->md5_state.load(std::memory_order_acquire);
+    int64_t track_index = 0;
+    {
+        std::lock_guard<std::mutex> next_lock(handle->next_mutex);
+        while (!handle->boundaries.empty() &&
+               raw_written >= handle->boundaries.front().end_frame &&
+               handle->active_track_index + 1 < handle->enqueued_tracks) {
+            handle->current_track_base_frame = handle->boundaries.front().end_frame;
+            handle->boundaries.pop_front();
+            handle->active_track_index += 1;
+        }
+        relative_written = static_cast<int64_t>(
+            raw_written >= handle->current_track_base_frame
+                ? raw_written - handle->current_track_base_frame
+                : 0);
+        if (!handle->boundaries.empty()) {
+            md5 = handle->boundaries.front().md5_state;
+        }
+        track_index = handle->active_track_index;
+    }
+
+    int64_t ring_fill_percent = 0;
+    {
+        std::lock_guard<std::mutex> lock(handle->mutex);
+        if (handle->ring != nullptr && handle->ring->capacity() > 0) {
+            ring_fill_percent = static_cast<int64_t>(
+                (handle->ring->available() * 100) / handle->ring->capacity());
+        }
+    }
+
     out[0] = handle->state.load(std::memory_order_acquire);
     out[1] = handle->underruns.load(std::memory_order_acquire);
-    out[2] = static_cast<int64_t>(handle->frames_written.load(std::memory_order_acquire));
-    out[3] = handle->md5_state.load(std::memory_order_acquire);
+    out[2] = relative_written;
+    out[3] = md5;
     out[4] = handle->error_code.load(std::memory_order_acquire);
+    out[5] = track_index;
+    out[6] = ring_fill_percent;
 }

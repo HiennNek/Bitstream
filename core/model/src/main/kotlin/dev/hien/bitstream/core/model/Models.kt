@@ -93,8 +93,8 @@ sealed interface VolumeState {
     /** Hardware volume, 0..100. */
     data class Hardware(val level: Int) : VolumeState
 
-    /** Software volume is enabled and therefore no longer bit-perfect. */
-    data object Software : VolumeState
+    /** Software volume is enabled (0..100) and therefore no longer bit-perfect. */
+    data class Software(val level: Int = 100) : VolumeState
 }
 
 data class PlaybackState(

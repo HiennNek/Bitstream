@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -65,33 +66,50 @@ fun PlaylistsRoute(onTrack: (Long) -> Unit) {
         },
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val libraryTracks by container.musicRepository.tracks.collectAsStateWithLifecycle(
+        initialValue = emptyList(),
+    )
     val scope = rememberCoroutineScope()
 
     PlaylistsScreen(
         state = state,
+        libraryTracks = libraryTracks,
         onSelect = viewModel::select,
         onBack = { viewModel.select(null) },
         onCreate = { name -> scope.launch { viewModel.create(name) } },
         onRename = { id, name -> scope.launch { viewModel.rename(id, name) } },
         onDelete = { id -> scope.launch { viewModel.delete(id) } },
+        onAddTrack = { trackId ->
+            state.selectedId?.let { id -> scope.launch { viewModel.addTrack(id, trackId) } }
+        },
         onMove = { from, to ->
             state.selectedId?.let { id -> scope.launch { viewModel.reorder(id, from, to) } }
         },
         onRemove = { trackId ->
             state.selectedId?.let { id -> scope.launch { viewModel.removeTrack(id, trackId) } }
         },
-        onTrack = onTrack,
+        onTrack = { trackId ->
+            val playlistTracks = state.tracks
+            val startIndex = playlistTracks.indexOfFirst { it.id == trackId }
+            if (playlistTracks.isNotEmpty() && startIndex >= 0) {
+                container.playTracks(playlistTracks, startIndex = startIndex)
+            } else {
+                onTrack(trackId)
+            }
+        },
     )
 }
 
 @Composable
 fun PlaylistsScreen(
     state: PlaylistsUiState,
+    libraryTracks: List<Track> = emptyList(),
     onSelect: (Long) -> Unit = {},
     onBack: () -> Unit = {},
     onCreate: (String) -> Unit = {},
     onRename: (Long, String) -> Unit = { _, _ -> },
     onDelete: (Long) -> Unit = {},
+    onAddTrack: (Long) -> Unit = {},
     onMove: (Int, Int) -> Unit = { _, _ -> },
     onRemove: (Long) -> Unit = {},
     onTrack: (Long) -> Unit = {},
@@ -103,9 +121,11 @@ fun PlaylistsScreen(
         PlaylistDetail(
             playlist = selected,
             state = state,
+            libraryTracks = libraryTracks,
             onBack = onBack,
             onRename = onRename,
             onDelete = onDelete,
+            onAddTrack = onAddTrack,
             onMove = onMove,
             onRemove = onRemove,
             onTrack = onTrack,
@@ -187,15 +207,18 @@ private fun PlaylistList(
 private fun PlaylistDetail(
     playlist: PlaylistInfo,
     state: PlaylistsUiState,
+    libraryTracks: List<Track>,
     onBack: () -> Unit,
     onRename: (Long, String) -> Unit,
     onDelete: (Long) -> Unit,
+    onAddTrack: (Long) -> Unit,
     onMove: (Int, Int) -> Unit,
     onRemove: (Long) -> Unit,
     onTrack: (Long) -> Unit,
 ) {
     var showRename by rememberSaveable { mutableStateOf(false) }
     var showDelete by rememberSaveable { mutableStateOf(false) }
+    var showAddTracks by rememberSaveable { mutableStateOf(false) }
     val tracksById = remember(state.tracks) { state.tracks.associateBy { it.id } }
 
     Scaffold(
@@ -213,6 +236,7 @@ private fun PlaylistDetail(
                     }
                 },
                 actions = {
+                    TextButton(onClick = { showAddTracks = true }) { Text("Add tracks") }
                     TextButton(onClick = { showRename = true }) { Text("Rename") }
                     TextButton(onClick = { showDelete = true }) { Text("Delete") }
                 },
@@ -239,7 +263,10 @@ private fun PlaylistDetail(
                     .fillMaxSize()
                     .padding(padding),
             ) {
-                itemsIndexed(state.entries, key = { _, trackId -> trackId }) { index, trackId ->
+                itemsIndexed(
+                    items = state.entries,
+                    key = { index, trackId -> "$index-$trackId" },
+                ) { index, trackId ->
                     PlaylistEntryRow(
                         index = index,
                         count = state.entries.size,
@@ -251,6 +278,40 @@ private fun PlaylistDetail(
                 }
             }
         }
+    }
+
+    if (showAddTracks) {
+        AlertDialog(
+            onDismissRequest = { showAddTracks = false },
+            title = { Text("Add tracks to ${playlist.name}") },
+            text = {
+                if (libraryTracks.isEmpty()) {
+                    Text("No tracks in library.")
+                } else {
+                    LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                        items(libraryTracks, key = { it.id }) { track ->
+                            ListItem(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onAddTrack(track.id) },
+                                content = {
+                                    Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                },
+                                supportingContent = {
+                                    Text(track.artist, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                },
+                                trailingContent = {
+                                    Text("+", style = MaterialTheme.typography.titleMedium)
+                                },
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showAddTracks = false }) { Text("Done") }
+            },
+        )
     }
 
     if (showRename) {

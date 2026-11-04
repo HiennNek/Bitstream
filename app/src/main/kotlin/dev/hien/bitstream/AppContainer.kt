@@ -95,6 +95,8 @@ class AppContainer(context: Context) {
                 }
             }
             appScope.launch {
+                var lastSavedStructure: String? = null
+                var lastSaveTimeMs = 0L
                 combine(
                     engine.queueItems,
                     engine.currentQueueIndex,
@@ -103,13 +105,21 @@ class AppContainer(context: Context) {
                     Triple(items, index, state)
                 }.collect { (items, index, state) ->
                     if (items.isNotEmpty() && index >= 0) {
-                        playbackStateStore.save(
-                            queueIds = items.map { it.id },
-                            index = index,
-                            positionMs = state.positionMs,
-                            shuffle = state.shuffle,
-                            repeat = state.repeat,
-                        )
+                        val structureKey = "${items.map { it.id }}|$index|${state.status}|${state.shuffle}|${state.repeat}"
+                        val now = System.currentTimeMillis()
+                        val structureChanged = structureKey != lastSavedStructure
+                        val periodicDue = now - lastSaveTimeMs >= 5_000L
+                        if (structureChanged || periodicDue) {
+                            lastSavedStructure = structureKey
+                            lastSaveTimeMs = now
+                            playbackStateStore.save(
+                                queueIds = items.map { it.id },
+                                index = index,
+                                positionMs = state.positionMs,
+                                shuffle = state.shuffle,
+                                repeat = state.repeat,
+                            )
+                        }
                     }
                 }
             }
@@ -179,11 +189,14 @@ class AppContainer(context: Context) {
         }
     }
 
-    fun playTracks(tracks: List<Track>, startIndex: Int = 0) {
+    fun playTracks(tracks: List<Track>, startIndex: Int = 0, shuffle: Boolean? = null) {
         if (tracks.isEmpty()) return
         appScope.launch {
             usbDeviceManager.refresh()
             PlaybackService.ensureStarted(appContext)
+            if (shuffle != null) {
+                playbackEngine.setShuffle(shuffle)
+            }
             playbackEngine.setQueue(tracks, startIndex.coerceIn(tracks.indices))
         }
     }

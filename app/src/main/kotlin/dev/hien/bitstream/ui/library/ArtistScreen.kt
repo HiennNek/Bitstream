@@ -11,12 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -104,20 +106,35 @@ fun ArtistScreen(
                 ) {
                     AlbumArtwork(uri = artwork, modifier = Modifier.size(112.dp))
                     Spacer(Modifier.width(16.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(artistId, style = MaterialTheme.typography.headlineSmall)
                         Text(
                             text = "$albumCount albums · ${tracks.size} tracks",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilledTonalButton(
+                                onClick = { container.playTracks(tracks, startIndex = 0, shuffle = false) },
+                            ) {
+                                Text("Play")
+                            }
+                            OutlinedButton(
+                                onClick = { container.playTracks(tracks, startIndex = 0, shuffle = true) },
+                            ) {
+                                Text("Shuffle")
+                            }
+                        }
                     }
                 }
                 HorizontalDivider()
             }
 
-            items(tracks, key = { it.id }) { track ->
-                TrackRow(track = track, onClick = { onTrack(track.id) })
+            itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
+                TrackRow(
+                    track = track,
+                    onClick = { container.playTracks(tracks, startIndex = index) },
+                )
             }
         }
     }

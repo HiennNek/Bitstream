@@ -57,7 +57,13 @@ object NativeAudio {
     ): Int
 
     /**
-     * Returns `[state, underruns, framesWritten, md5State, errorCode]`.
+     * Sets the Q1.30 software volume multiplier (`-1` disables software volume
+     * for bit-perfect output; `0..(1 shl 30)` applies Q1.30 gain with TPDF dither).
+     */
+    external fun nativeSetSoftwareVolume(handle: Long, gainQ30: Int)
+
+    /**
+     * Returns `[state, underruns, framesWritten, md5State, errorCode, trackIndex, ringFillPercent]`.
      * State: 0 idle, 1 playing, 2 ended, 3 error.
      * MD5: 0 unavailable/partial, 1 verified, 2 failed.
      */

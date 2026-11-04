@@ -35,6 +35,7 @@ class FlacMetadataReader {
         var streamInfo: StreamInfo? = null
         val vorbis = linkedMapOf<String, MutableList<String>>()
         var picture: ByteArray? = null
+        var pictureType: Int = -1
         var lastBlock = false
 
         while (!lastBlock) {
@@ -62,9 +63,15 @@ class FlacMetadataReader {
 
                 BLOCK_PICTURE -> {
                     val parsed = parsePicture(readFully(stream, length))
-                    if (picture == null) picture = parsed.data
-                    if (parsed.mime.isNotEmpty()) {
-                        vorbis["COVERARTMIME"] = mutableListOf(parsed.mime)
+                    val shouldReplace = picture == null ||
+                        (pictureType != PICTURE_TYPE_FRONT_COVER &&
+                            parsed.pictureType == PICTURE_TYPE_FRONT_COVER)
+                    if (shouldReplace) {
+                        picture = parsed.data
+                        pictureType = parsed.pictureType
+                        if (parsed.mime.isNotEmpty()) {
+                            vorbis["COVERARTMIME"] = mutableListOf(parsed.mime)
+                        }
                     }
                 }
 
@@ -164,7 +171,8 @@ class FlacMetadataReader {
     private fun parsePicture(payload: ByteArray): Picture {
         var offset = 0
 
-        offset += 4 // picture type
+        val pictureType = be32(payload, offset)
+        offset += 4
         val mimeLength = be32(payload, offset)
         offset += 4
         if (mimeLength < 0 || offset + mimeLength > payload.size) {
@@ -188,7 +196,11 @@ class FlacMetadataReader {
             throw FlacFormatException("Malformed PICTURE data")
         }
 
-        return Picture(mime = mime, data = payload.copyOfRange(offset, offset + dataLength))
+        return Picture(
+            pictureType = pictureType,
+            mime = mime,
+            data = payload.copyOfRange(offset, offset + dataLength),
+        )
     }
 
     private fun be32(bytes: ByteArray, offset: Int): Int {
@@ -240,7 +252,7 @@ class FlacMetadataReader {
         }
     }
 
-    private data class Picture(val mime: String, val data: ByteArray)
+    private data class Picture(val pictureType: Int, val mime: String, val data: ByteArray)
 
     companion object {
         private const val MAX_BLOCK_BYTES = 16 * 1024 * 1024
@@ -248,6 +260,7 @@ class FlacMetadataReader {
         private const val BLOCK_STREAMINFO = 0
         private const val BLOCK_VORBIS_COMMENT = 4
         private const val BLOCK_PICTURE = 6
+        private const val PICTURE_TYPE_FRONT_COVER = 3
 
         private const val ID3_FOOTER_FLAG = 0x10
 

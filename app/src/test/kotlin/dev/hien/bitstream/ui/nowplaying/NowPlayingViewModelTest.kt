@@ -41,6 +41,8 @@ class NowPlayingViewModelTest {
         assertEquals(75, engine.hardwareVolume)
         vm.setSoftwareVolume(true)
         assertEquals(true, engine.softwareVolume)
+        vm.setSoftwareVolumeLevel(65)
+        assertEquals(65, engine.softwareVolumeLevel)
     }
 
     private fun state(
@@ -81,6 +83,7 @@ class NowPlayingViewModelTest {
         var seekMs: Long? = null
         var hardwareVolume: Int? = null
         var softwareVolume: Boolean? = null
+        var softwareVolumeLevel: Int? = null
 
         override fun play() {
             playCalled = true
@@ -104,6 +107,10 @@ class NowPlayingViewModelTest {
 
         override fun setSoftwareVolume(on: Boolean) {
             softwareVolume = on
+        }
+
+        override fun setSoftwareVolumeLevel(level: Int) {
+            softwareVolumeLevel = level
         }
 
         override fun setShuffle(on: Boolean) = Unit

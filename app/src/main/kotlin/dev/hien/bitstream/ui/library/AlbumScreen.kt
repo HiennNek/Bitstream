@@ -14,10 +14,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -101,7 +103,7 @@ fun AlbumScreen(
                 ) {
                     AlbumArtwork(uri = artwork, modifier = Modifier.size(132.dp))
                     Spacer(Modifier.width(16.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(title, style = MaterialTheme.typography.headlineSmall)
                         if (artist.isNotBlank()) {
                             Text(
@@ -115,6 +117,18 @@ fun AlbumScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilledTonalButton(
+                                onClick = { container.playTracks(tracks, startIndex = 0, shuffle = false) },
+                            ) {
+                                Text("Play")
+                            }
+                            OutlinedButton(
+                                onClick = { container.playTracks(tracks, startIndex = 0, shuffle = true) },
+                            ) {
+                                Text("Shuffle")
+                            }
+                        }
                     }
                 }
                 HorizontalDivider()
@@ -123,7 +137,7 @@ fun AlbumScreen(
             itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
                 TrackRow(
                     track = track.copy(title = "${index + 1}. ${track.title}"),
-                    onClick = { onTrack(track.id) },
+                    onClick = { container.playTracks(tracks, startIndex = index) },
                 )
             }
         }

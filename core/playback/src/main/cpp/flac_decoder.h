@@ -22,6 +22,7 @@ struct FlacDecodeResult {
     bool complete;
     int md5_state;
     int error;
+    uint64_t frames_decoded;
 };
 
 /**
@@ -31,4 +32,5 @@ struct FlacDecodeResult {
  */
 FlacDecodeResult decode_flac_fd(int fd, RingBuffer* ring, int sample_rate, int bit_depth,
                                 int channels, int subslot_bytes, int64_t start_frame,
-                                std::atomic<bool>* stop);
+                                std::atomic<bool>* stop,
+                                const std::atomic<int32_t>* software_gain_q30 = nullptr);
