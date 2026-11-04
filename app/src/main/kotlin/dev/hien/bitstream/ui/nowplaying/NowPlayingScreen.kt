@@ -75,6 +75,7 @@ import dev.hien.bitstream.core.model.BitPerfectPath
 import dev.hien.bitstream.core.model.RepeatMode
 import dev.hien.bitstream.core.model.VolumeState
 import dev.hien.bitstream.core.playback.usb.DacState
+import dev.hien.bitstream.ui.queue.QueueSheet
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -91,6 +92,7 @@ fun NowPlayingRoute(
     val state by viewModel.state.collectAsState()
     val dacState by container.usbDeviceManager.state.collectAsState()
     var showOutputSheet by rememberSaveable { mutableStateOf(false) }
+    var showQueueSheet by rememberSaveable { mutableStateOf(false) }
 
     val effectiveDacName = state.dacName ?: (dacState as? DacState.Connected)?.handle?.name
     val effectiveState = state.copy(dacName = effectiveDacName)
@@ -106,7 +108,10 @@ fun NowPlayingRoute(
         onCycleRepeat = viewModel::cycleRepeat,
         onHardwareVolume = viewModel::setHardwareVolume,
         onSoftwareVolume = viewModel::setSoftwareVolume,
-        onQueue = onQueue,
+        onQueue = {
+            showQueueSheet = true
+            onQueue()
+        },
         onOutput = { showOutputSheet = true },
         sharedTransitionScope = sharedTransitionScope,
         animatedVisibilityScope = animatedVisibilityScope,
@@ -119,6 +124,10 @@ fun NowPlayingRoute(
             onSoftwareVolume = viewModel::setSoftwareVolume,
             onDismiss = { showOutputSheet = false },
         )
+    }
+
+    if (showQueueSheet) {
+        QueueSheet(onDismiss = { showQueueSheet = false })
     }
 }
 
@@ -138,6 +147,7 @@ fun NowPlayingScreen(
     val state by viewModel.state.collectAsState()
     val dacState by container.usbDeviceManager.state.collectAsState()
     var showInternalOutputSheet by rememberSaveable { mutableStateOf(false) }
+    var showInternalQueueSheet by rememberSaveable { mutableStateOf(false) }
 
     val effectiveDacName = state.dacName ?: (dacState as? DacState.Connected)?.handle?.name
     val effectiveState = state.copy(dacName = effectiveDacName)
@@ -153,7 +163,10 @@ fun NowPlayingScreen(
         onCycleRepeat = viewModel::cycleRepeat,
         onHardwareVolume = viewModel::setHardwareVolume,
         onSoftwareVolume = viewModel::setSoftwareVolume,
-        onQueue = onQueue,
+        onQueue = {
+            showInternalQueueSheet = true
+            onQueue()
+        },
         onOutput = {
             showInternalOutputSheet = true
             onOutput()
@@ -169,6 +182,10 @@ fun NowPlayingScreen(
             onSoftwareVolume = viewModel::setSoftwareVolume,
             onDismiss = { showInternalOutputSheet = false },
         )
+    }
+
+    if (showInternalQueueSheet) {
+        QueueSheet(onDismiss = { showInternalQueueSheet = false })
     }
 }
 
