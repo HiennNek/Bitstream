@@ -24,6 +24,10 @@
 - Commit after every task. Conventional commit messages (`feat:`, `fix:`, `test:`, `docs:`, `chore:`).
 - Read the spec before starting. The spec's §5 bit-perfect definition and §13 status rules are normative.
 
+## Execution Order
+
+Task numbers group by subsystem; they are not a strict execution order. Build Task 1 first. Then execute **Task 10's USB spike before any other feature work**, using a temporary debug screen that opens the first audio-class device through `UsbManager` and hardcodes the JA11's endpoint/alt-setting values; the parser and manager from Tasks 8–9 are not needed for the spike. If the spike fails, stop and fix the claim strategy — do not build the engine on an unverified USB path. After it passes, continue in numeric order from Task 2. The spike code is kept and refined by Tasks 8–13.
+
 ## Review Focus
 
 These are the failure modes most likely to bite a user and are not fully exercised by ordinary happy-path tests. Each has a test in the task that owns the code.
