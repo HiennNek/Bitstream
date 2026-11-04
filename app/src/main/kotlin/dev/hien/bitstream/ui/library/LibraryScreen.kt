@@ -100,48 +100,54 @@ fun LibraryRoute(onTrack: (Long) -> Unit) {
         scope.launch { navigator.navigateBack() }
     }
 
-    ListDetailPaneScaffold(
-        directive = navigator.scaffoldDirective,
-        value = navigator.scaffoldValue,
-        listPane = {
-            AnimatedPane {
-                LibraryScreen(
-                    state = state,
-                    onAlbum = { albumId ->
-                        scope.launch {
-                            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, "album:$albumId")
-                        }
-                    },
-                    onTrack = onTrack,
-                    onArtist = { artist ->
-                        scope.launch {
-                            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, "artist:$artist")
-                        }
-                    },
-                    onPickFolder = { picker.launch(null) },
-                )
-            }
-        },
-        detailPane = {
-            AnimatedPane {
-                val key = navigator.currentDestination?.contentKey
-                when {
-                    key == null -> DetailPlaceholder()
-                    key.startsWith(ARTIST_PREFIX) -> ArtistScreen(
-                        artistId = key.removePrefix(ARTIST_PREFIX),
-                        onTrack = onTrack,
-                        onBack = { scope.launch { navigator.navigateBack() } },
-                    )
-
-                    else -> AlbumScreen(
-                        albumId = key.removePrefix(ALBUM_PREFIX),
-                        onTrack = onTrack,
-                        onBack = { scope.launch { navigator.navigateBack() } },
-                    )
+    val listContent: @Composable () -> Unit = {
+        LibraryScreen(
+            state = state,
+            onAlbum = { albumId ->
+                scope.launch {
+                    navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, "album:$albumId")
                 }
-            }
-        },
-    )
+            },
+            onTrack = onTrack,
+            onArtist = { artist ->
+                scope.launch {
+                    navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, "artist:$artist")
+                }
+            },
+            onPickFolder = { picker.launch(null) },
+        )
+    }
+
+    if (state.empty) {
+        // An empty library has nothing to put in a detail pane, so let the
+        // empty state use the full window on tablets.
+        listContent()
+    } else {
+        ListDetailPaneScaffold(
+            directive = navigator.scaffoldDirective,
+            value = navigator.scaffoldValue,
+            listPane = { AnimatedPane { listContent() } },
+            detailPane = {
+                AnimatedPane {
+                    val key = navigator.currentDestination?.contentKey
+                    when {
+                        key == null -> DetailPlaceholder()
+                        key.startsWith(ARTIST_PREFIX) -> ArtistScreen(
+                            artistId = key.removePrefix(ARTIST_PREFIX),
+                            onTrack = onTrack,
+                            onBack = { scope.launch { navigator.navigateBack() } },
+                        )
+
+                        else -> AlbumScreen(
+                            albumId = key.removePrefix(ALBUM_PREFIX),
+                            onTrack = onTrack,
+                            onBack = { scope.launch { navigator.navigateBack() } },
+                        )
+                    }
+                }
+            },
+        )
+    }
 }
 
 private const val ALBUM_PREFIX = "album:"

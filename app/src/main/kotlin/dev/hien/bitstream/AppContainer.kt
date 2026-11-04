@@ -9,6 +9,8 @@ import dev.hien.bitstream.core.data.db.BitstreamDatabase
 import dev.hien.bitstream.core.data.db.ScanFolderEntity
 import dev.hien.bitstream.core.data.library.ArtworkCache
 import dev.hien.bitstream.core.data.library.ScanWorker
+import dev.hien.bitstream.ui.playlists.PlaylistStore
+import dev.hien.bitstream.ui.playlists.RoomPlaylistStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -22,6 +24,8 @@ class AppContainer(context: Context) {
         albumDao = database.albumDao(),
         artistDao = database.artistDao(),
     )
+
+    val playlistStore: PlaylistStore = RoomPlaylistStore(database.playlistDao())
 
     val artworkCache = ArtworkCache(appContext)
 

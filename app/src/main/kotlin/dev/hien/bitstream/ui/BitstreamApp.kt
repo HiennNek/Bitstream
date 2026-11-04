@@ -17,6 +17,8 @@ import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.NavChrome
 import dev.hien.bitstream.core.designsystem.navChromeFor
 import dev.hien.bitstream.ui.library.LibraryRoute
+import dev.hien.bitstream.ui.playlists.PlaylistsRoute
+import dev.hien.bitstream.ui.search.SearchRoute
 
 private enum class Destination(
     val label: String,
@@ -79,10 +81,14 @@ fun BitstreamApp() {
                     LibraryRoute(onTrack = {})
                 }
                 composable(Destination.Search.route) {
-                    PlaceholderScreen(title = Destination.Search.label)
+                    SearchRoute(
+                        onTrack = {},
+                        onAlbum = {},
+                        onArtist = {},
+                    )
                 }
                 composable(Destination.Playlists.route) {
-                    PlaceholderScreen(title = Destination.Playlists.label)
+                    PlaylistsRoute(onTrack = {})
                 }
                 composable(Destination.Settings.route) {
                     PlaceholderScreen(title = Destination.Settings.label)
