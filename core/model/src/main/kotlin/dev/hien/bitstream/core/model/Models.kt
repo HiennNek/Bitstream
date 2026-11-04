@@ -27,6 +27,11 @@ data class Track(
     val channels: Int = 2,
     val hasMd5: Boolean = false,
     val artworkUri: String? = null,
+    val year: Int? = null,
+    val genre: String = "",
+    val folder: String = "",
+    val size: Long = 0,
+    val modified: Long = 0,
 ) {
     val format: AudioFormat
         get() = AudioFormat(sampleRate = sampleRate, bitDepth = bitDepth, channels = channels)

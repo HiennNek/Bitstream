@@ -67,6 +67,34 @@ fun TrackEntity.toModel(): Track = Track(
     channels = channels,
     hasMd5 = hasMd5,
     artworkUri = artKey,
+    year = year,
+    genre = genre,
+    folder = folder,
+    size = size,
+    modified = modified,
+)
+
+fun Track.toEntity(addedAt: Long = System.currentTimeMillis()): TrackEntity = TrackEntity(
+    id = id,
+    uri = uri,
+    title = title,
+    artist = artist,
+    album = album,
+    albumArtist = albumArtist,
+    trackNumber = trackNumber,
+    discNumber = discNumber,
+    year = year,
+    genre = genre,
+    durationMs = durationMs,
+    sampleRate = sampleRate,
+    bitDepth = bitDepth,
+    channels = channels,
+    hasMd5 = hasMd5,
+    artKey = artworkUri,
+    folder = folder,
+    size = size,
+    modified = modified,
+    addedAt = addedAt,
 )
 
 fun AlbumEntity.toModel(): Album = Album(
