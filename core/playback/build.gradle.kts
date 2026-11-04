@@ -21,7 +21,12 @@ android {
 dependencies {
     api(project(":core:model"))
 
+    implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.datastore.preferences)
+
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.runner)

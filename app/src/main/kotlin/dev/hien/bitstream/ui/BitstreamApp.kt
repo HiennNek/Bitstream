@@ -16,9 +16,13 @@ import androidx.navigation.compose.rememberNavController
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.NavChrome
 import dev.hien.bitstream.core.designsystem.navChromeFor
+import dev.hien.bitstream.ui.debug.UsbDebugRoute
 import dev.hien.bitstream.ui.library.LibraryRoute
 import dev.hien.bitstream.ui.playlists.PlaylistsRoute
 import dev.hien.bitstream.ui.search.SearchRoute
+import dev.hien.bitstream.ui.settings.SettingsRoute
+
+private const val USB_DEBUG_ROUTE = "usb-debug"
 
 private enum class Destination(
     val label: String,
@@ -39,7 +43,12 @@ fun BitstreamApp() {
     val destinations = Destination.entries
     val selectedIndex = destinations
         .indexOfFirst { it.route == currentRoute }
-        .coerceAtLeast(0)
+        .takeIf { it >= 0 }
+        ?: if (currentRoute == USB_DEBUG_ROUTE) {
+            destinations.indexOf(Destination.Settings)
+        } else {
+            0
+        }
 
     BoxWithConstraints {
         val chrome = navChromeFor(maxWidth.value.toInt())
@@ -91,7 +100,12 @@ fun BitstreamApp() {
                     PlaylistsRoute(onTrack = {})
                 }
                 composable(Destination.Settings.route) {
-                    PlaceholderScreen(title = Destination.Settings.label)
+                    SettingsRoute(
+                        onUsbDiagnostics = { navController.navigate(USB_DEBUG_ROUTE) },
+                    )
+                }
+                composable(USB_DEBUG_ROUTE) {
+                    UsbDebugRoute(onBack = { navController.popBackStack() })
                 }
             }
         }

@@ -9,6 +9,10 @@ import dev.hien.bitstream.core.data.db.BitstreamDatabase
 import dev.hien.bitstream.core.data.db.ScanFolderEntity
 import dev.hien.bitstream.core.data.library.ArtworkCache
 import dev.hien.bitstream.core.data.library.ScanWorker
+import dev.hien.bitstream.core.playback.usb.AndroidUsbDeviceSource
+import dev.hien.bitstream.core.playback.usb.DataStoreLastDeviceStore
+import dev.hien.bitstream.core.playback.usb.UacDescriptorParser
+import dev.hien.bitstream.core.playback.usb.UsbDeviceManager
 import dev.hien.bitstream.ui.playlists.PlaylistStore
 import dev.hien.bitstream.ui.playlists.RoomPlaylistStore
 import kotlinx.coroutines.flow.Flow
@@ -28,6 +32,14 @@ class AppContainer(context: Context) {
     val playlistStore: PlaylistStore = RoomPlaylistStore(database.playlistDao())
 
     val artworkCache = ArtworkCache(appContext)
+
+    val usbDeviceManager: UsbDeviceManager by lazy {
+        UsbDeviceManager(
+            source = AndroidUsbDeviceSource(appContext),
+            parser = UacDescriptorParser(),
+            store = DataStoreLastDeviceStore(appContext),
+        )
+    }
 
     val scanning: Flow<Boolean> =
         WorkManager.getInstance(appContext)
