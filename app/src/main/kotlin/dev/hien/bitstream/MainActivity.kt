@@ -8,10 +8,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
 import dev.hien.bitstream.core.designsystem.BitstreamTheme
 import dev.hien.bitstream.ui.BitstreamApp as BitstreamUi
+import dev.hien.bitstream.ui.settings.ThemePreference
 
 class MainActivity : ComponentActivity() {
     private val notificationPermissionLauncher = registerForActivityResult(
@@ -24,8 +28,18 @@ class MainActivity : ComponentActivity() {
         requestNotificationsIfNeeded()
         val container = (application as BitstreamApp).container
         setContent {
+            val themePref by container.settingsStore.themeFlow.collectAsState()
+            val dynamicColor by container.settingsStore.dynamicColorFlow.collectAsState()
+            val darkTheme = when (themePref) {
+                ThemePreference.SYSTEM -> isSystemInDarkTheme()
+                ThemePreference.LIGHT -> false
+                ThemePreference.DARK -> true
+            }
             CompositionLocalProvider(LocalAppContainer provides container) {
-                BitstreamTheme {
+                BitstreamTheme(
+                    darkTheme = darkTheme,
+                    dynamicColor = dynamicColor,
+                ) {
                     BitstreamUi()
                 }
             }

@@ -20,6 +20,8 @@ import dev.hien.bitstream.core.playback.usb.UacDescriptorParser
 import dev.hien.bitstream.core.playback.usb.UsbDeviceManager
 import dev.hien.bitstream.ui.playlists.PlaylistStore
 import dev.hien.bitstream.ui.playlists.RoomPlaylistStore
+import dev.hien.bitstream.ui.settings.AndroidSettingsStore
+import dev.hien.bitstream.ui.settings.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -87,6 +89,15 @@ class AppContainer(context: Context) {
         WorkManager.getInstance(appContext)
             .getWorkInfosForUniqueWorkFlow(ScanWorker.UNIQUE_WORK)
             .map { infos -> infos.any { !it.state.isFinished } }
+
+    val settingsStore: SettingsStore by lazy {
+        AndroidSettingsStore(
+            context = appContext,
+            scanFolderDao = database.scanFolderDao(),
+            playbackController = playbackEngine,
+            scope = appScope,
+        )
+    }
 
     init {
         appScope.launch {
