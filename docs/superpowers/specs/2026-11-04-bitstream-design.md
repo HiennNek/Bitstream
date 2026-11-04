@@ -361,14 +361,33 @@ badge.
   a warm accent) on older versions. No hardcoded colors outside the theme.
 - Edge-to-edge, dark/light/system, predictive back.
 
-**Structure**
-- The primary device is a 10.9" tablet, so the medium/expanded layout is the main
-  experience: `NavigationRail`, list-detail for album/artist, wider album grids, and a
-  persistent queue pane in landscape. Compact is fully designed but secondary.
-- Compact: bottom `NavigationBar` (Library, Search, Playlists, Settings) + mini player
-  docked above it.
-- Now Playing is a full-screen destination with a shared-element transition from the
-  mini player's artwork; back collapses it predictively.
+**Structure and responsive behavior**
+
+Every screen must work in all four combinations: phone portrait, phone landscape,
+tablet portrait, tablet landscape. Layout follows the window size class
+(`currentWindowAdaptiveInfo()`), not the device type, so split-screen, freeform, and DeX
+are covered by the same rules.
+
+| Window | Navigation | Content | Queue | Now Playing |
+|---|---|---|---|---|
+| Compact portrait (phone) | bottom `NavigationBar` + mini player | single pane | modal bottom sheet | full screen, art above controls |
+| Compact landscape (phone) | `NavigationRail` | single pane, wider grids | bottom sheet, or side pane when width allows | art left, controls right |
+| Medium portrait (tablet) | `NavigationRail` | single pane, 4–5 column album grid | modal bottom sheet | two panes, art + controls |
+| Medium/expanded landscape (tablet) | `NavigationRail` | `ListDetailPaneScaffold` (library → detail) | persistent supporting pane | art \| controls + queue |
+| Expanded/large (split-screen, DeX) | `NavigationRail` or permanent drawer | list-detail, max content width 1040 dp | supporting pane | three panes |
+
+- Use Material 3 adaptive `ListDetailPaneScaffold` / `SupportingPaneScaffold` for
+  album/artist/playlist detail and the queue pane; `NavigationSuiteScaffold` switches
+  bottom bar ↔ rail automatically.
+- Album grids use adaptive minimum tile widths; text columns cap at ~840 dp; Settings
+  caps at 720 dp.
+- Orientation changes preserve queue, playback position, scroll, and back stack via
+  ViewModel + `SavedStateHandle`; no `configChanges` hack.
+- Edge-to-edge insets and display cutouts are handled in both orientations; transport
+  controls stay within thumb reach in landscape.
+- Predictive back, the shared-element artwork transition from the mini player, and the
+  full Now Playing destination behave identically in every size class.
+- Multi-window/freeform and DeX are treated as expanded layouts; no separate mode.
 
 **Screens**
 - **Library:** expressive header, segmented filter (Albums / Artists / Tracks), album
@@ -421,6 +440,9 @@ badge.
 - **Version matrix:** Android 16 is the hardware target; API 29/33/35 emulators cover
   lifecycle, notification, foreground-service, permission, and UI behavior. minSdk 29 is
   a supported floor, not a promise of per-OEM testing.
+- **Responsive matrix:** phone and tablet, portrait and landscape, compact/medium/expanded
+  size classes, plus split-screen; rotation mid-playback must not interrupt audio or lose
+  queue/position/scroll state.
 - **Manual hardware checklist (JA11 + Galaxy Tab S10 FE, Android 16):** detection and permission, UAC2
   connection, rate switching across 44.1/48/96/192/384, 16/24/32-bit files, gapless
   same-format, gap on format change, seek, pause/resume, background + screen off,
@@ -437,9 +459,10 @@ badge.
 - Gradle Kotlin DSL + version catalog. AGP compatible with SDK 36, Kotlin 2.4.x, JDK 17,
   Compose compiler via the Kotlin plugin.
 - Compose BOM (2026.06+), `material3` 1.5.0-beta02 for expressive APIs (pin exactly;
-  isolate experimental usage), activity-compose, navigation-compose, lifecycle,
-  Media3 `session`/`common` 1.11.x, Room + KSP, Coil 3, DataStore, kotlinx-coroutines,
-  kotlinx-serialization, DocumentFile.
+  isolate experimental usage), Material 3 adaptive (`adaptive`, `adaptive-layout`,
+  `adaptive-navigation`, navigation suite), activity-compose, navigation-compose,
+  lifecycle, Media3 `session`/`common` 1.11.x, Room + KSP, Coil 3, DataStore,
+  kotlinx-coroutines, kotlinx-serialization, DocumentFile.
 - CMake 3.22.1, NDK 29, vendored libFLAC and libusb.
 - No analytics, no network permission, no ads.
 
@@ -504,6 +527,8 @@ badge.
 - **Hardware loop:** adb wireless + attached JA11, iterative installs and log capture.
   No UAC1 DAC; UAC1 is best-effort and fixture-tested.
 - **Library:** tens of thousands of tracks max, one file per track, no CUE support.
+- **Responsive:** phone and tablet, portrait and landscape are all first-class; layout
+  follows window size class, and rotation never interrupts playback or loses state.
 
 ## 21. Left to the builder
 
