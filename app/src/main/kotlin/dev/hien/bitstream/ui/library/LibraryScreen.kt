@@ -18,12 +18,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -129,20 +132,27 @@ fun LibraryRoute(onTrack: (Long) -> Unit) {
             listPane = { AnimatedPane { listContent() } },
             detailPane = {
                 AnimatedPane {
-                    val key = navigator.currentDestination?.contentKey
-                    when {
-                        key == null -> DetailPlaceholder()
-                        key.startsWith(ARTIST_PREFIX) -> ArtistScreen(
-                            artistId = key.removePrefix(ARTIST_PREFIX),
-                            onTrack = onTrack,
-                            onBack = { scope.launch { navigator.navigateBack() } },
-                        )
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.TopCenter,
+                    ) {
+                        Box(modifier = Modifier.widthIn(max = 840.dp).fillMaxSize()) {
+                            val key = navigator.currentDestination?.contentKey
+                            when {
+                                key == null -> DetailPlaceholder()
+                                key.startsWith(ARTIST_PREFIX) -> ArtistScreen(
+                                    artistId = key.removePrefix(ARTIST_PREFIX),
+                                    onTrack = onTrack,
+                                    onBack = { scope.launch { navigator.navigateBack() } },
+                                )
 
-                        else -> AlbumScreen(
-                            albumId = key.removePrefix(ALBUM_PREFIX),
-                            onTrack = onTrack,
-                            onBack = { scope.launch { navigator.navigateBack() } },
-                        )
+                                else -> AlbumScreen(
+                                    albumId = key.removePrefix(ALBUM_PREFIX),
+                                    onTrack = onTrack,
+                                    onBack = { scope.launch { navigator.navigateBack() } },
+                                )
+                            }
+                        }
                     }
                 }
             },
@@ -194,7 +204,10 @@ private fun LibraryContent(
     onArtist: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val gridState = rememberLazyGridState()
+    val artistsRowState = rememberLazyListState()
     LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Adaptive(minSize = 160.dp),
         modifier = modifier,
         contentPadding = PaddingValues(16.dp),
@@ -218,7 +231,10 @@ private fun LibraryContent(
                 SectionHeader("Artists")
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(
+                    state = artistsRowState,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     items(state.artists, key = { it.id }) { artist ->
                         AssistChip(
                             onClick = { onArtist(artist.id) },

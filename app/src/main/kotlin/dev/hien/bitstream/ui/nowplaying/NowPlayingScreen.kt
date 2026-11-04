@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -75,7 +76,9 @@ import dev.hien.bitstream.core.model.BitPerfectPath
 import dev.hien.bitstream.core.model.RepeatMode
 import dev.hien.bitstream.core.model.VolumeState
 import dev.hien.bitstream.core.playback.usb.DacState
+import dev.hien.bitstream.ui.queue.QueuePane
 import dev.hien.bitstream.ui.queue.QueueSheet
+import dev.hien.bitstream.ui.queue.QueueViewModel
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -89,33 +92,68 @@ fun NowPlayingRoute(
     val viewModel = remember(container.playbackEngine) {
         NowPlayingViewModel(container.playbackEngine)
     }
+    val queueViewModel = remember(container.playbackEngine) {
+        QueueViewModel(container.playbackEngine)
+    }
     val state by viewModel.state.collectAsState()
+    val queueState by queueViewModel.state.collectAsState()
     val dacState by container.usbDeviceManager.state.collectAsState()
     var showOutputSheet by rememberSaveable { mutableStateOf(false) }
-    var showQueueSheet by rememberSaveable { mutableStateOf(false) }
+    var showQueue by rememberSaveable { mutableStateOf(false) }
 
     val effectiveDacName = state.dacName ?: (dacState as? DacState.Connected)?.handle?.name
     val effectiveState = state.copy(dacName = effectiveDacName)
 
-    NowPlayingContent(
-        state = effectiveState,
-        onBack = onBack,
-        onPlayPause = viewModel::togglePlayPause,
-        onSeek = viewModel::seekTo,
-        onNext = viewModel::next,
-        onPrevious = viewModel::previous,
-        onToggleShuffle = viewModel::toggleShuffle,
-        onCycleRepeat = viewModel::cycleRepeat,
-        onHardwareVolume = viewModel::setHardwareVolume,
-        onSoftwareVolume = viewModel::setSoftwareVolume,
-        onQueue = {
-            showQueueSheet = true
-            onQueue()
-        },
-        onOutput = { showOutputSheet = true },
-        sharedTransitionScope = sharedTransitionScope,
-        animatedVisibilityScope = animatedVisibilityScope,
-    )
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isExpandedWidth = maxWidth >= 840.dp
+        NowPlayingContent(
+            state = effectiveState,
+            onBack = onBack,
+            onPlayPause = viewModel::togglePlayPause,
+            onSeek = viewModel::seekTo,
+            onNext = viewModel::next,
+            onPrevious = viewModel::previous,
+            onToggleShuffle = viewModel::toggleShuffle,
+            onCycleRepeat = viewModel::cycleRepeat,
+            onHardwareVolume = viewModel::setHardwareVolume,
+            onSoftwareVolume = viewModel::setSoftwareVolume,
+            onQueue = {
+                showQueue = !showQueue
+                onQueue()
+            },
+            onOutput = { showOutputSheet = true },
+            sharedTransitionScope = sharedTransitionScope,
+            animatedVisibilityScope = animatedVisibilityScope,
+            supportingQueuePane = if (isExpandedWidth && showQueue) {
+                {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier
+                            .width(340.dp)
+                            .fillMaxHeight(),
+                    ) {
+                        QueuePane(
+                            state = queueState,
+                            onMove = queueViewModel::move,
+                            onRemove = queueViewModel::remove,
+                            onPlay = queueViewModel::play,
+                            onToggleShuffle = queueViewModel::toggleShuffle,
+                            onCycleRepeat = queueViewModel::cycleRepeat,
+                            onClose = { showQueue = false },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                }
+            } else {
+                null
+            },
+        )
+
+        if (!isExpandedWidth && showQueue) {
+            QueueSheet(onDismiss = { showQueue = false })
+        }
+    }
 
     if (showOutputSheet) {
         OutputSheet(
@@ -124,10 +162,6 @@ fun NowPlayingRoute(
             onSoftwareVolume = viewModel::setSoftwareVolume,
             onDismiss = { showOutputSheet = false },
         )
-    }
-
-    if (showQueueSheet) {
-        QueueSheet(onDismiss = { showQueueSheet = false })
     }
 }
 
@@ -206,6 +240,7 @@ fun NowPlayingContent(
     onOutput: () -> Unit,
     sharedTransitionScope: SharedTransitionScope? = null,
     animatedVisibilityScope: AnimatedVisibilityScope? = null,
+    supportingQueuePane: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -313,6 +348,9 @@ fun NowPlayingContent(
                             onSoftwareVolume = onSoftwareVolume,
                             onOutput = onOutput,
                         )
+                    }
+                    if (supportingQueuePane != null) {
+                        supportingQueuePane()
                     }
                 }
             } else {

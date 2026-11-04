@@ -5,13 +5,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,8 +21,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
-import dev.hien.bitstream.core.designsystem.NavChrome
-import dev.hien.bitstream.core.designsystem.navChromeFor
+import dev.hien.bitstream.ui.adaptive.AdaptiveNavItem
+import dev.hien.bitstream.ui.adaptive.AdaptiveNavigationScaffold
 import dev.hien.bitstream.ui.debug.UsbDebugRoute
 import dev.hien.bitstream.ui.library.LibraryRoute
 import dev.hien.bitstream.ui.nowplaying.MiniPlayerBar
@@ -71,92 +68,83 @@ fun BitstreamApp() {
             0
         }
 
-    BoxWithConstraints {
-        val chrome = navChromeFor(maxWidth.value.toInt())
-
-        NavigationSuiteScaffold(
-            navigationSuiteItems = {
-                destinations.forEachIndexed { index, destination ->
-                    item(
-                        selected = selectedIndex == index,
-                        onClick = {
-                            navController.navigate(destination.route) {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = {
-                            Icon(
-                                painter = painterResource(destination.icon),
-                                contentDescription = destination.label,
-                            )
-                        },
-                        label = { Text(destination.label) },
-                    )
+    val navItems = destinations.mapIndexed { index, destination ->
+        AdaptiveNavItem(
+            label = destination.label,
+            selected = selectedIndex == index,
+            onClick = {
+                navController.navigate(destination.route) {
+                    popUpTo(navController.graph.startDestinationId) {
+                        saveState = true
+                    }
+                    launchSingleTop = true
+                    restoreState = true
                 }
             },
-            layoutType = when (chrome) {
-                NavChrome.BAR -> NavigationSuiteType.NavigationBar
-                NavChrome.RAIL -> NavigationSuiteType.NavigationRail
+            icon = {
+                Icon(
+                    painter = painterResource(destination.icon),
+                    contentDescription = destination.label,
+                )
             },
-        ) {
-            SharedTransitionLayout {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        NavHost(
-                            navController = navController,
-                            startDestination = Destination.Library.route,
-                        ) {
-                            composable(Destination.Library.route) {
-                                LibraryRoute(onTrack = container::playTrack)
-                            }
-                            composable(Destination.Search.route) {
-                                SearchRoute(
-                                    onTrack = container::playTrack,
-                                    onAlbum = {},
-                                    onArtist = {},
-                                )
-                            }
-                            composable(Destination.Playlists.route) {
-                                PlaylistsRoute(onTrack = container::playTrack)
-                            }
-                            composable(Destination.Settings.route) {
-                                SettingsRoute(
-                                    onUsbDiagnostics = { navController.navigate(USB_DEBUG_ROUTE) },
-                                )
-                            }
-                            composable(USB_DEBUG_ROUTE) {
-                                UsbDebugRoute(onBack = { navController.popBackStack() })
-                            }
-                            composable(NOW_PLAYING_ROUTE) {
-                                NowPlayingRoute(
-                                    onBack = { navController.popBackStack() },
-                                    sharedTransitionScope = this@SharedTransitionLayout,
-                                    animatedVisibilityScope = this@composable,
-                                )
-                            }
+            labelContent = { Text(destination.label) },
+        )
+    }
+
+    AdaptiveNavigationScaffold(items = navItems) {
+        SharedTransitionLayout {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f)) {
+                    NavHost(
+                        navController = navController,
+                        startDestination = Destination.Library.route,
+                    ) {
+                        composable(Destination.Library.route) {
+                            LibraryRoute(onTrack = container::playTrack)
+                        }
+                        composable(Destination.Search.route) {
+                            SearchRoute(
+                                onTrack = container::playTrack,
+                                onAlbum = {},
+                                onArtist = {},
+                            )
+                        }
+                        composable(Destination.Playlists.route) {
+                            PlaylistsRoute(onTrack = container::playTrack)
+                        }
+                        composable(Destination.Settings.route) {
+                            SettingsRoute(
+                                onUsbDiagnostics = { navController.navigate(USB_DEBUG_ROUTE) },
+                            )
+                        }
+                        composable(USB_DEBUG_ROUTE) {
+                            UsbDebugRoute(onBack = { navController.popBackStack() })
+                        }
+                        composable(NOW_PLAYING_ROUTE) {
+                            NowPlayingRoute(
+                                onBack = { navController.popBackStack() },
+                                sharedTransitionScope = this@SharedTransitionLayout,
+                                animatedVisibilityScope = this@composable,
+                            )
                         }
                     }
+                }
 
-                    AnimatedVisibility(
-                        visible = currentRoute != NOW_PLAYING_ROUTE && nowPlayingState.track != null,
-                    ) {
-                        MiniPlayerBar(
-                            state = nowPlayingState,
-                            onOpenNowPlaying = {
-                                navController.navigate(NOW_PLAYING_ROUTE) {
-                                    launchSingleTop = true
-                                }
-                            },
-                            onPlayPause = nowPlayingViewModel::togglePlayPause,
-                            onNext = nowPlayingViewModel::next,
-                            sharedTransitionScope = this@SharedTransitionLayout,
-                            animatedVisibilityScope = this,
-                        )
-                    }
+                AnimatedVisibility(
+                    visible = currentRoute != NOW_PLAYING_ROUTE && nowPlayingState.track != null,
+                ) {
+                    MiniPlayerBar(
+                        state = nowPlayingState,
+                        onOpenNowPlaying = {
+                            navController.navigate(NOW_PLAYING_ROUTE) {
+                                launchSingleTop = true
+                            }
+                        },
+                        onPlayPause = nowPlayingViewModel::togglePlayPause,
+                        onNext = nowPlayingViewModel::next,
+                        sharedTransitionScope = this@SharedTransitionLayout,
+                        animatedVisibilityScope = this,
+                    )
                 }
             }
         }
