@@ -87,17 +87,20 @@ fun BitstreamApp() {
                 startDestination = Destination.Library.route,
             ) {
                 composable(Destination.Library.route) {
-                    LibraryRoute(onTrack = {})
+                    val container = dev.hien.bitstream.LocalAppContainer.current
+                    LibraryRoute(onTrack = container::playTrack)
                 }
                 composable(Destination.Search.route) {
+                    val container = dev.hien.bitstream.LocalAppContainer.current
                     SearchRoute(
-                        onTrack = {},
+                        onTrack = container::playTrack,
                         onAlbum = {},
                         onArtist = {},
                     )
                 }
                 composable(Destination.Playlists.route) {
-                    PlaylistsRoute(onTrack = {})
+                    val container = dev.hien.bitstream.LocalAppContainer.current
+                    PlaylistsRoute(onTrack = container::playTrack)
                 }
                 composable(Destination.Settings.route) {
                     SettingsRoute(
