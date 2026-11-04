@@ -163,6 +163,19 @@ class UsbDeviceManager(
         _state.value = DacState.NoDevice
     }
 
+    fun setHardwareVolume(level: Int): Boolean {
+        val connected = _state.value as? DacState.Connected ?: return false
+        val featureUnitId = connected.device.featureUnitId ?: return false
+        val range = connected.device.volume ?: return false
+        return source.setVolume(
+            handle = connected.handle,
+            featureUnitId = featureUnitId,
+            controlInterface = connected.device.controlInterface,
+            range = range,
+            level = level.coerceIn(0, 100),
+        )
+    }
+
     fun onAttached(handle: UsbDeviceHandle) {
         if (_state.value is DacState.Connected) return
         val remembered = lastDeviceKey

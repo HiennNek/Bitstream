@@ -89,4 +89,6 @@ interface AudioBackend {
     suspend fun close()
 
     fun setSoftwareVolume(enabled: Boolean)
+
+    fun setHardwareVolume(level: Int) {}
 }

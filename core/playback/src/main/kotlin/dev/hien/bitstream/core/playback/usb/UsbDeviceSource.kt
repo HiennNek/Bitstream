@@ -57,5 +57,14 @@ interface UsbDeviceSource {
         controlInterface: Int,
     ): VolumeRange? = null
 
+    /** Sets the feature unit's hardware volume in 1/256 dB units. */
+    fun setVolume(
+        handle: UsbDeviceHandle,
+        featureUnitId: Int,
+        controlInterface: Int,
+        range: VolumeRange,
+        level: Int,
+    ): Boolean = false
+
     val events: Flow<UsbEvent> get() = emptyFlow()
 }

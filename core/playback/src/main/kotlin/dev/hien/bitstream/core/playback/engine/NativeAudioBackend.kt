@@ -48,6 +48,7 @@ class NativeAudioBackend(
     private var startFrameOffset: Long = 0L
     private var lastFramesWritten: Long = 0L
     private var lastUnderruns: Long = 0L
+    private var lastIntegrity: Integrity = Integrity.UNAVAILABLE
     private var softwareVolumeEnabled: Boolean = false
     private var hardwareVolumeLevel: Int = 100
     private var pollJob: Job? = null
@@ -193,6 +194,7 @@ class NativeAudioBackend(
         startFrameOffset = startFrame
         lastFramesWritten = 0L
         lastUnderruns = 0L
+        lastIntegrity = Integrity.UNAVAILABLE
         startPolling(handle, format.sampleRate)
     }
 
@@ -250,6 +252,11 @@ class NativeAudioBackend(
         softwareVolumeEnabled = enabled
     }
 
+    override fun setHardwareVolume(level: Int) {
+        hardwareVolumeLevel = level.coerceIn(0, 100)
+        usbDeviceManager.setHardwareVolume(hardwareVolumeLevel)
+    }
+
     private fun startPolling(handle: Long, sampleRate: Int) {
         pollJob?.cancel()
         pollJob = scope.launch {
@@ -266,6 +273,14 @@ class NativeAudioBackend(
                     if (underruns != lastUnderruns) {
                         lastUnderruns = underruns
                         _events.emit(BackendEvent.Underrun(underruns))
+                    }
+
+                    if (md5State == MD5_VERIFIED || md5State == MD5_FAILED) {
+                        val verifiedIntegrity = mapIntegrity(md5State)
+                        if (verifiedIntegrity != lastIntegrity) {
+                            lastIntegrity = verifiedIntegrity
+                            _events.emit(BackendEvent.Md5(verifiedIntegrity))
+                        }
                     }
 
                     _events.emit(

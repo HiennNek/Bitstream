@@ -304,6 +304,7 @@ class PlaybackEngine(
         enqueueCommand {
             val clamped = level.coerceIn(0, 100)
             lastHardwareVolume = VolumeState.Hardware(clamped)
+            backend.setHardwareVolume(clamped)
             if (!softwareVolumeEnabled) {
                 _state.update { it.copy(volume = lastHardwareVolume) }
             }

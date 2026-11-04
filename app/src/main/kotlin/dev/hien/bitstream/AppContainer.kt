@@ -88,6 +88,14 @@ class AppContainer(context: Context) {
             .getWorkInfosForUniqueWorkFlow(ScanWorker.UNIQUE_WORK)
             .map { infos -> infos.any { !it.state.isFinished } }
 
+    init {
+        appScope.launch {
+            if (database.scanFolderDao().observeFolders().first().isNotEmpty()) {
+                scanAll()
+            }
+        }
+    }
+
     suspend fun addFolder(treeUri: String, displayName: String) {
         database.scanFolderDao().upsert(
             ScanFolderEntity(

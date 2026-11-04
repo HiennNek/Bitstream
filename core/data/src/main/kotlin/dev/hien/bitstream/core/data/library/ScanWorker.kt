@@ -45,6 +45,7 @@ class ScanWorker(
             )
 
             var indexed = 0
+            val scannedIds = mutableSetOf<Long>()
             for (treeUri in folders) {
                 val root = tree.root(treeUri) ?: continue
                 val result = scanner.scan(listOf(root)) { count ->
@@ -52,6 +53,7 @@ class ScanWorker(
                 }
 
                 database.trackDao().upsertAll(result.tracks.map { it.toEntity() })
+                result.tracks.forEach { scannedIds.add(it.id) }
                 indexed += result.tracks.size
                 database.scanFolderDao().upsert(
                     ScanFolderEntity(
@@ -60,6 +62,12 @@ class ScanWorker(
                         lastScan = System.currentTimeMillis(),
                     ),
                 )
+            }
+
+            if (explicit == null) {
+                val existingIds = database.trackDao().observeTracks().first().map { it.id }
+                val removedIds = existingIds.filter { it !in scannedIds }
+                database.trackDao().deleteByIds(removedIds)
             }
 
             RoomMusicRepository(
@@ -73,8 +81,6 @@ class ScanWorker(
             throw e
         } catch (_: Exception) {
             Result.failure()
-        } finally {
-            database.close()
         }
     }
 

@@ -1,10 +1,12 @@
 package dev.hien.bitstream.core.designsystem
 
 import android.os.Build
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -79,3 +81,13 @@ fun BitstreamTheme(
         content = content,
     )
 }
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun <T> expressiveSpatialSpec(): FiniteAnimationSpec<T> =
+    MaterialTheme.motionScheme.defaultSpatialSpec()
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun <T> expressiveEffectsSpec(): FiniteAnimationSpec<T> =
+    MaterialTheme.motionScheme.defaultEffectsSpec()

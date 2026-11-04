@@ -30,11 +30,16 @@ abstract class BitstreamDatabase : RoomDatabase() {
     companion object {
         private const val NAME = "bitstream.db"
 
+        @Volatile
+        private var instance: BitstreamDatabase? = null
+
         fun create(context: Context): BitstreamDatabase =
-            Room.databaseBuilder(
-                context.applicationContext,
-                BitstreamDatabase::class.java,
-                NAME,
-            ).build()
+            instance ?: synchronized(this) {
+                instance ?: Room.databaseBuilder(
+                    context.applicationContext,
+                    BitstreamDatabase::class.java,
+                    NAME,
+                ).build().also { instance = it }
+            }
     }
 }

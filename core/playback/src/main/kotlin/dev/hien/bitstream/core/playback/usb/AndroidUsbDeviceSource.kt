@@ -175,13 +175,23 @@ class AndroidUsbDeviceSource(context: Context) : UsbDeviceSource {
     ): VolumeRange? {
         val connection = connections[handle.key] ?: return null
         val data = ByteArray(2 + 3 * 2)
-        val read = controlIn(
+        val index = controlInterface or (featureUnitId shl 8)
+        var read = controlIn(
             connection = connection,
             request = UAC2_CS_RANGE,
             value = UAC_FU_VOLUME shl 8,
-            index = controlInterface or (featureUnitId shl 8),
+            index = index,
             buffer = data,
         )
+        if (read < data.size || le16(data, 0) == 0) {
+            read = controlIn(
+                connection = connection,
+                request = UAC2_CS_RANGE,
+                value = (UAC_FU_VOLUME shl 8) or 1,
+                index = index,
+                buffer = data,
+            )
+        }
         if (read < data.size || le16(data, 0) == 0) {
             Log.d(TAG, "volume range unavailable (read=$read)")
             return null
@@ -191,6 +201,50 @@ class AndroidUsbDeviceSource(context: Context) : UsbDeviceSource {
             max = le16(data, 4).toShort().toInt(),
             resolution = le16(data, 6).toShort().toInt(),
         ).also { Log.d(TAG, "volume range: $it") }
+    }
+
+    override fun setVolume(
+        handle: UsbDeviceHandle,
+        featureUnitId: Int,
+        controlInterface: Int,
+        range: VolumeRange,
+        level: Int,
+    ): Boolean {
+        val connection = connections[handle.key] ?: return false
+        val clampedLevel = level.coerceIn(0, 100)
+        val span = (range.max - range.min).coerceAtLeast(0)
+        val raw = range.min + ((span.toLong() * clampedLevel) / 100L).toInt()
+        val res = range.resolution.coerceAtLeast(1)
+        val stepped = (range.min + ((raw - range.min) / res) * res)
+            .coerceIn(range.min, range.max)
+        val payload = byteArrayOf(
+            (stepped and 0xFF).toByte(),
+            ((stepped shr 8) and 0xFF).toByte(),
+        )
+        val index = controlInterface or (featureUnitId shl 8)
+        val master = controlOut(
+            connection = connection,
+            request = UAC2_CS_CUR,
+            value = UAC_FU_VOLUME shl 8,
+            index = index,
+            buffer = payload,
+        )
+        if (master >= 0) return true
+        val left = controlOut(
+            connection = connection,
+            request = UAC2_CS_CUR,
+            value = (UAC_FU_VOLUME shl 8) or 1,
+            index = index,
+            buffer = payload,
+        )
+        val right = controlOut(
+            connection = connection,
+            request = UAC2_CS_CUR,
+            value = (UAC_FU_VOLUME shl 8) or 2,
+            index = index,
+            buffer = payload,
+        )
+        return left >= 0 || right >= 0
     }
 
     fun close() {
@@ -227,6 +281,37 @@ class AndroidUsbDeviceSource(context: Context) : UsbDeviceSource {
             Log.d(
                 TAG,
                 "control IN request=0x%02x value=0x%04x index=0x%04x length=%d -> %d"
+                    .format(request, value, index, buffer.size, result),
+            )
+        }
+        return result
+    }
+
+    private fun controlOut(
+        connection: UsbDeviceConnection,
+        request: Int,
+        value: Int,
+        index: Int,
+        buffer: ByteArray,
+    ): Int {
+        val result = runCatching {
+            connection.controlTransfer(
+                REQUEST_TYPE_OUT,
+                request,
+                value,
+                index,
+                buffer,
+                buffer.size,
+                CONTROL_TIMEOUT_MS,
+            )
+        }.getOrElse { error ->
+            Log.w(TAG, "control OUT transfer threw", error)
+            -1
+        }
+        if (result < 0) {
+            Log.d(
+                TAG,
+                "control OUT request=0x%02x value=0x%04x index=0x%04x length=%d -> %d"
                     .format(request, value, index, buffer.size, result),
             )
         }
@@ -310,6 +395,9 @@ class AndroidUsbDeviceSource(context: Context) : UsbDeviceSource {
 
         /** Device-to-host, class, interface. */
         const val REQUEST_TYPE_IN = 0xA1
+        /** Host-to-device, class, interface. */
+        const val REQUEST_TYPE_OUT = 0x21
+        const val UAC2_CS_CUR = 0x01
         const val UAC2_CS_RANGE = 0x02
         const val UAC2_CS_CONTROL_SAM_FREQ = 0x01
         const val UAC_FU_VOLUME = 0x02
