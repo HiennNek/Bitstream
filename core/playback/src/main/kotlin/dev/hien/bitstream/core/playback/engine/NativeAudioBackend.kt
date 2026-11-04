@@ -52,6 +52,36 @@ class NativeAudioBackend(
     private var softwareVolumeEnabled: Boolean = false
     private var hardwareVolumeLevel: Int = 100
     private var pollJob: Job? = null
+    private var wasDacConnected: Boolean = false
+    private var lastDacName: String? = null
+
+    init {
+        scope.launch {
+            usbDeviceManager.state.collect { dacState ->
+                when (dacState) {
+                    is DacState.Connected -> {
+                        val name = dacState.handle.name
+                        val hadPrevious = lastDacName != null
+                        lastDacName = name
+                        if (!wasDacConnected && hadPrevious) {
+                            _events.emit(BackendEvent.Reattached(name))
+                        }
+                        wasDacConnected = true
+                    }
+
+                    DacState.NoDevice -> {
+                        if (wasDacConnected) {
+                            wasDacConnected = false
+                            closeNativeHandle()
+                            _events.emit(BackendEvent.Detached(lastDacName))
+                        }
+                    }
+
+                    else -> Unit
+                }
+            }
+        }
+    }
 
     override suspend fun open(track: Track, format: AudioFormat): OpenResult {
         val dacState = usbDeviceManager.state.value
@@ -305,12 +335,23 @@ class NativeAudioBackend(
                         }
 
                         STATE_ERROR -> {
-                            val title = currentTrack?.title ?: "Track"
-                            _events.emit(
-                                BackendEvent.Failed(
-                                    "$title could not be decoded (error $errorCode).",
-                                ),
-                            )
+                            val mapped = PlaybackError.fromNativeCode(errorCode.toInt())
+                            if (mapped == PlaybackError.NO_DEVICE) {
+                                closeNativeHandle()
+                                _events.emit(BackendEvent.Detached(lastDacName))
+                            } else {
+                                val title = currentTrack?.title ?: "Track"
+                                val reason = mapped.userMessage(
+                                    dacName = lastDacName,
+                                    detail = "$title could not be decoded (error $errorCode).",
+                                )
+                                _events.emit(
+                                    BackendEvent.Failed(
+                                        reason = reason,
+                                        error = mapped,
+                                    ),
+                                )
+                            }
                             break
                         }
                     }

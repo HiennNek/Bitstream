@@ -11,6 +11,7 @@ import dev.hien.bitstream.core.data.db.ScanFolderEntity
 import dev.hien.bitstream.core.data.library.ArtworkCache
 import dev.hien.bitstream.core.data.library.ScanWorker
 import dev.hien.bitstream.core.model.PlaybackStatus
+import dev.hien.bitstream.core.model.RepeatMode
 import dev.hien.bitstream.core.model.Track
 import dev.hien.bitstream.core.playback.engine.NativeAudioBackend
 import dev.hien.bitstream.core.playback.engine.PlaybackEngine
@@ -26,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -70,6 +72,47 @@ class AppContainer(context: Context) {
             backend = audioBackend,
             scope = appScope,
         ).also { engine ->
+            appScope.launch {
+                val saved = playbackStateStore.load()
+                if (saved != null && engine.queueItems.value.isEmpty()) {
+                    val savedIds = playbackStateStore.queueIds(saved)
+                    if (savedIds.isNotEmpty()) {
+                        val tracksById = musicRepository.tracks.first().associateBy { it.id }
+                        val restoredTracks = savedIds.mapNotNull { tracksById[it] }
+                        if (restoredTracks.isNotEmpty()) {
+                            val repeatMode = runCatching {
+                                RepeatMode.valueOf(saved.repeat)
+                            }.getOrDefault(RepeatMode.OFF)
+                            engine.restoreQueue(
+                                tracks = restoredTracks,
+                                startIndex = saved.index.coerceIn(restoredTracks.indices),
+                                positionMs = saved.positionMs,
+                                shuffle = saved.shuffle,
+                                repeat = repeatMode,
+                            )
+                        }
+                    }
+                }
+            }
+            appScope.launch {
+                combine(
+                    engine.queueItems,
+                    engine.currentQueueIndex,
+                    engine.state,
+                ) { items, index, state ->
+                    Triple(items, index, state)
+                }.collect { (items, index, state) ->
+                    if (items.isNotEmpty() && index >= 0) {
+                        playbackStateStore.save(
+                            queueIds = items.map { it.id },
+                            index = index,
+                            positionMs = state.positionMs,
+                            shuffle = state.shuffle,
+                            repeat = state.repeat,
+                        )
+                    }
+                }
+            }
             appScope.launch {
                 engine.state
                     .map { it.status }

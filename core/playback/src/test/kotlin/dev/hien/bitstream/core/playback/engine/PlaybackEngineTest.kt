@@ -133,7 +133,7 @@ class PlaybackEngineTest {
 internal class FakeBackend(
     private val supportedRates: Set<Int> = setOf(44_100, 48_000, 96_000, 192_000),
     private val failOn: Set<Long> = emptySet(),
-    private val dacConnected: Boolean = true,
+    private var dacConnected: Boolean = true,
 ) : AudioBackend {
     private val eventFlow = MutableSharedFlow<BackendEvent>(extraBufferCapacity = 16)
     val enqueued = mutableListOf<Track>()
@@ -217,6 +217,16 @@ internal class FakeBackend(
 
     fun emit(event: BackendEvent) {
         eventFlow.tryEmit(event)
+    }
+
+    fun detach() {
+        dacConnected = false
+        eventFlow.tryEmit(BackendEvent.Detached("Fake DAC"))
+    }
+
+    fun reattach() {
+        dacConnected = true
+        eventFlow.tryEmit(BackendEvent.Reattached("Fake DAC"))
     }
 }
 

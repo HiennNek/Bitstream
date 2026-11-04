@@ -52,6 +52,14 @@ interface PlaybackController {
 
     fun setQueue(tracks: List<Track>, startIndex: Int = 0) = Unit
 
+    fun restoreQueue(
+        tracks: List<Track>,
+        startIndex: Int = 0,
+        positionMs: Long = 0L,
+        shuffle: Boolean = false,
+        repeat: RepeatMode = RepeatMode.OFF,
+    ) = Unit
+
     fun playIndex(index: Int) = Unit
 
     fun moveQueueItem(from: Int, to: Int) = Unit
@@ -101,6 +109,7 @@ class PlaybackEngine(
     private var lastHardwareVolume: VolumeState = VolumeState.Fixed
     private var gaplessEnqueuedTrackId: Long? = null
     private var resumeFrame: Long = 0L
+    private var needsReopenOnResume: Boolean = false
 
     init {
         scope.coroutineContext[Job]?.invokeOnCompletion {
@@ -140,14 +149,59 @@ class PlaybackEngine(
         }
     }
 
+    override fun restoreQueue(
+        tracks: List<Track>,
+        startIndex: Int,
+        positionMs: Long,
+        shuffle: Boolean,
+        repeat: RepeatMode,
+    ) {
+        enqueueCommand {
+            if (tracks.isEmpty()) return@enqueueCommand
+            gaplessEnqueuedTrackId = null
+            needsReopenOnResume = true
+            queue.setItems(tracks, startIndex.coerceIn(tracks.indices))
+            queue.setShuffle(shuffle)
+            queue.setRepeat(repeat)
+            syncQueueFlows()
+            val current = queue.current ?: return@enqueueCommand
+            val clampedMs = if (current.durationMs > 0) {
+                positionMs.coerceIn(0L, current.durationMs)
+            } else {
+                positionMs.coerceAtLeast(0L)
+            }
+            resumeFrame = if (current.sampleRate > 0) {
+                (clampedMs * current.sampleRate) / 1_000L
+            } else {
+                0L
+            }
+            _state.update {
+                it.copy(
+                    status = PlaybackStatus.PAUSED,
+                    track = current,
+                    positionMs = clampedMs,
+                    durationMs = current.durationMs,
+                    queueSize = queue.size,
+                    shuffle = queue.shuffle,
+                    repeat = queue.repeat,
+                    integrity = initialIntegrity(current, resumeFrame),
+                )
+            }
+        }
+    }
+
     override fun play() {
         enqueueCommand {
             val current = queue.current ?: return@enqueueCommand
             when (_state.value.status) {
                 PlaybackStatus.READY -> return@enqueueCommand
                 PlaybackStatus.PAUSED -> {
-                    backend.resume()
-                    _state.update { it.copy(status = PlaybackStatus.READY) }
+                    if (needsReopenOnResume || _state.value.path == BitPerfectPath.NO_DAC) {
+                        openAndStart(current, startFrame = resumeFrame, allowSkipOnFailure = false)
+                    } else {
+                        backend.resume()
+                        _state.update { it.copy(status = PlaybackStatus.READY) }
+                    }
                 }
                 else -> {
                     openAndStart(current, startFrame = resumeFrame, allowSkipOnFailure = false)
@@ -400,6 +454,7 @@ class PlaybackEngine(
 
         return when (val result = backend.open(track, track.format)) {
             is OpenResult.Ready -> {
+                needsReopenOnResume = false
                 lastHardwareVolume = result.volume
                 _dacName.value = result.dacName
                 val path = if (softwareVolumeEnabled) {
@@ -539,6 +594,56 @@ class PlaybackEngine(
                 }
                 addNotice(detail)
                 advanceToNextPlayable(ignoreRepeatOne = true)
+            }
+
+            is BackendEvent.Detached -> {
+                val track = queue.current
+                if (track != null && track.sampleRate > 0) {
+                    resumeFrame = (_state.value.positionMs * track.sampleRate) / 1_000L
+                }
+                gaplessEnqueuedTrackId = null
+                needsReopenOnResume = true
+                backend.stop()
+                _dacName.value = null
+                addNotice("USB DAC disconnected — playback paused. Reconnect to resume.")
+                _state.update { current ->
+                    current.copy(
+                        status = if (track != null) PlaybackStatus.PAUSED else PlaybackStatus.NO_DAC,
+                        path = BitPerfectPath.NO_DAC,
+                        queueSize = queue.size,
+                    )
+                }
+            }
+
+            is BackendEvent.Reattached -> {
+                if (event.dacName != null) {
+                    _dacName.value = event.dacName
+                }
+                needsReopenOnResume = true
+                val restoredPath = if (softwareVolumeEnabled) {
+                    BitPerfectPath.SOFTWARE_VOLUME
+                } else {
+                    BitPerfectPath.BIT_PERFECT
+                }
+                addNotice(
+                    buildString {
+                        append("USB DAC connected")
+                        event.dacName?.let { append(" ($it)") }
+                        append(" — tap Play to resume.")
+                    },
+                )
+                _state.update { current ->
+                    val nextStatus = when (current.status) {
+                        PlaybackStatus.NO_DAC ->
+                            if (queue.current != null) PlaybackStatus.PAUSED else PlaybackStatus.IDLE
+                        else -> current.status
+                    }
+                    current.copy(
+                        status = nextStatus,
+                        path = restoredPath,
+                        queueSize = queue.size,
+                    )
+                }
             }
         }
     }

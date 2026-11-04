@@ -7,6 +7,52 @@ import dev.hien.bitstream.core.model.VolumeState
 import kotlinx.coroutines.flow.Flow
 
 /**
+ * Typed classification of native USB / FLAC errors mapped to user-facing
+ * explanations.
+ */
+enum class PlaybackError {
+    NO_DEVICE,
+    BUSY,
+    STALL,
+    OVERRUN,
+    UNDERRUN,
+    PROTOCOL,
+    UNSUPPORTED_RATE,
+    UNSUPPORTED_CHANNELS,
+    DECODE_FAILED,
+    ;
+
+    fun userMessage(dacName: String? = null, detail: String? = null): String {
+        val target = dacName ?: "USB DAC"
+        return when (this) {
+            NO_DEVICE -> "USB DAC disconnected — playback paused."
+            BUSY -> "$target is busy (claimed by another app or Android audio)."
+            STALL -> "$target stalled on USB endpoint transfer; reconnect or try again."
+            OVERRUN -> "$target reported a USB packet overrun."
+            UNDERRUN -> "$target experienced an audio buffer underrun."
+            PROTOCOL -> "$target encountered a USB protocol error."
+            UNSUPPORTED_RATE -> detail ?: "$target does not support this sample rate."
+            UNSUPPORTED_CHANNELS -> detail ?: "Only stereo (2-channel) FLAC files are supported."
+            DECODE_FAILED -> detail ?: "Track could not be decoded."
+        }
+    }
+
+    companion object {
+        fun fromNativeCode(code: Int): PlaybackError = when (code) {
+            -4 -> NO_DEVICE
+            -6 -> BUSY
+            -9 -> STALL
+            -8 -> OVERRUN
+            -99 -> UNDERRUN
+            -1, -7, -11 -> PROTOCOL
+            -101 -> UNSUPPORTED_RATE
+            -102 -> UNSUPPORTED_CHANNELS
+            else -> DECODE_FAILED
+        }
+    }
+}
+
+/**
  * Result of asking [AudioBackend.open] to prepare a DAC stream for a track and
  * its exact [AudioFormat].
  */
@@ -27,6 +73,7 @@ sealed interface OpenResult {
 
     data class Failed(
         val reason: String,
+        val error: PlaybackError = PlaybackError.DECODE_FAILED,
     ) : OpenResult
 }
 
@@ -47,6 +94,15 @@ sealed interface BackendEvent {
 
     data class Failed(
         val reason: String,
+        val error: PlaybackError = PlaybackError.DECODE_FAILED,
+    ) : BackendEvent
+
+    data class Detached(
+        val dacName: String? = null,
+    ) : BackendEvent
+
+    data class Reattached(
+        val dacName: String? = null,
     ) : BackendEvent
 
     data class Progress(

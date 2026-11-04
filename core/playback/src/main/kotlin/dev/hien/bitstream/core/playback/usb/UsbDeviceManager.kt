@@ -38,6 +38,9 @@ class UsbDeviceManager(
     private val _state = MutableStateFlow<DacState>(DacState.NoDevice)
     val state: StateFlow<DacState> = _state.asStateFlow()
 
+    private val _lastError = MutableStateFlow<String?>(null)
+    val lastError: StateFlow<String?> = _lastError.asStateFlow()
+
     var lastDeviceKey: String? = lastKey
         private set
 
@@ -111,7 +114,9 @@ class UsbDeviceManager(
         val beforeOpen = handle.rawDescriptor
         val fileDescriptor = runCatching { source.open(handle) }.getOrDefault(-1)
         if (fileDescriptor < 0) {
-            _state.value = DacState.Error("Could not open ${handle.name}.", handle.key)
+            val reason = "Could not open ${handle.name}."
+            _lastError.value = reason
+            _state.value = DacState.Error(reason, handle.key)
             return
         }
         openHandle = handle
@@ -123,12 +128,15 @@ class UsbDeviceManager(
         if (parsed == null) {
             source.close(handle)
             openHandle = null
+            val reason = "The USB audio descriptors could not be parsed."
+            _lastError.value = reason
             _state.value = DacState.Error(
-                "The USB audio descriptors could not be parsed.",
+                reason,
                 handle.key,
             )
             return
         }
+        _lastError.value = null
 
         val device = parsed.copy(
             formats = mergeSampleRates(parsed, handle),

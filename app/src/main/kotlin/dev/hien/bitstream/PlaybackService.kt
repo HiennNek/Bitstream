@@ -1,13 +1,17 @@
 package dev.hien.bitstream
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.os.Build
 import android.os.Looper
 import android.os.PowerManager
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
 import androidx.media3.session.MediaSession
@@ -125,6 +129,33 @@ class PlaybackService : MediaSessionService() {
                 }
             }
         }
+
+        serviceScope.launch {
+            var lastNoticeCount = controller.notices.value.size
+            controller.notices.collect { notices ->
+                if (notices.size > lastNoticeCount) {
+                    val latest = notices.lastOrNull()
+                    if (latest != null &&
+                        (latest.contains("DAC disconnected", ignoreCase = true) ||
+                            latest.contains("USB DAC connected", ignoreCase = true))
+                    ) {
+                        postDacStatusNotification(
+                            message = latest,
+                            offerResume = latest.contains("USB DAC connected", ignoreCase = true) &&
+                                controller.state.value.status == PlaybackStatus.PAUSED,
+                        )
+                    }
+                }
+                lastNoticeCount = notices.size
+            }
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_RESUME_PLAYBACK && ::controller.isInitialized) {
+            controller.play()
+        }
+        return super.onStartCommand(intent, flags, startId)
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
@@ -196,8 +227,52 @@ class PlaybackService : MediaSessionService() {
         }
     }
 
+    private fun postDacStatusNotification(message: String, offerResume: Boolean) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                DAC_CHANNEL_ID,
+                "USB DAC Status",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            )
+            notificationManager.createNotificationChannel(channel)
+        }
+        val openAppIntent = PendingIntent.getActivity(
+            this,
+            100,
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val builder = NotificationCompat.Builder(this, DAC_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_library_music)
+            .setContentTitle("Bitstream USB DAC")
+            .setContentText(message)
+            .setContentIntent(openAppIntent)
+            .setAutoCancel(true)
+        if (offerResume) {
+            val resumePendingIntent = PendingIntent.getService(
+                this,
+                101,
+                Intent(this, PlaybackService::class.java).apply {
+                    action = ACTION_RESUME_PLAYBACK
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.addAction(0, "Resume", resumePendingIntent)
+        }
+        runCatching {
+            notificationManager.notify(DAC_NOTIFICATION_ID, builder.build())
+        }
+    }
+
     companion object {
         private const val MAX_WAKELOCK_MS = 4L * 60L * 60L * 1_000L
+        private const val DAC_CHANNEL_ID = "bitstream_dac_status"
+        private const val DAC_NOTIFICATION_ID = 4201
+        const val ACTION_RESUME_PLAYBACK = "dev.hien.bitstream.action.RESUME"
 
         @Volatile
         private var isRunning: Boolean = false
