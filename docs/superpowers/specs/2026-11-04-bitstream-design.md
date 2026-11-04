@@ -61,7 +61,9 @@ No accounts, no network, no telemetry.
 ## 5. Constraints
 
 **Hardware / platform**
-- Android 10+ (minSdk 29), compile/target SDK 36.
+- Android 10+ (minSdk 29), target SDK 36, compile SDK 37. The pinned 2026.09
+  AndroidX/Compose set requires compiling against API 37; runtime behavior still targets
+  Android 16.
 - Primary test device: Samsung Galaxy Tab S10 FE (SM-X526B), Android 16 / API 36, USB-C
   host confirmed active. It is a tablet, so medium/expanded and landscape layouts are
   first-class, not an afterthought.
@@ -441,7 +443,8 @@ are covered by the same rules.
   host-side CTest; URB packet sizing math including feedback conversion.
 - **Version matrix:** Android 16 is the hardware target; API 29/33/35 emulators cover
   lifecycle, notification, foreground-service, permission, and UI behavior. minSdk 29 is
-  a supported floor, not a promise of per-OEM testing.
+  a supported floor, not a promise of per-OEM testing. compileSdk 37 is a build-time
+  requirement of the pinned AndroidX/Compose versions; targetSdk remains 36.
 - **Responsive matrix:** phone and tablet, portrait and landscape, compact/medium/expanded
   size classes, plus split-screen; rotation mid-playback must not interrupt audio or lose
   queue/position/scroll state.
@@ -458,8 +461,8 @@ are covered by the same rules.
 
 ## 17. Tooling and dependencies
 
-- Gradle Kotlin DSL + version catalog. AGP compatible with SDK 36, Kotlin 2.4.x, JDK 17,
-  Compose compiler via the Kotlin plugin.
+- Gradle Kotlin DSL + version catalog. AGP 9.3.1 with built-in Kotlin, SDK 37, Kotlin
+  2.4.x, JDK 17, Compose compiler via the Kotlin plugin.
 - Compose BOM (2026.06+), `material3` 1.5.0-beta02 for expressive APIs (pin exactly;
   isolate experimental usage), Material 3 adaptive (`adaptive`, `adaptive-layout`,
   `adaptive-navigation`, navigation suite), activity-compose, navigation-compose,
@@ -508,7 +511,8 @@ are covered by the same rules.
 ## 20. Decisions made in this design (check these)
 
 - Working name **Bitstream**, package `dev.hien.bitstream`, single-user app.
-- **minSdk 29**, target/compile 36; arm64 + x86_64.
+- **minSdk 29**, target 36, compile 37 (the pinned AndroidX set requires API 37 at build
+  time); arm64 + x86_64.
 - **USB DAC required**; no speaker/Bluetooth fallback in v1.
 - **Stereo only**; mono/multichannel unsupported rather than altered.
 - **No resampling fallback**; unsupported rates are refused with an explanation.

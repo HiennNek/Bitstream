@@ -12,7 +12,9 @@
 
 ## Global Constraints
 
-- `minSdk = 29`, `targetSdk = 36`, `compileSdk = 36`; ABIs `arm64-v8a` and `x86_64`.
+- `minSdk = 29`, `targetSdk = 36`, `compileSdk = 37`; ABIs `arm64-v8a` and `x86_64`.
+  compileSdk 37 is required by the pinned 2026.09 AndroidX/Compose set; targetSdk stays 36.
+  Install it with `sdkmanager "platforms;android-37.0"`.
 - Application ID and namespace: `dev.hien.bitstream`.
 - Stereo FLAC only, 16/24/32-bit, 44.1–384 kHz. No DSD, no multichannel, no mono, no CUE.
 - Bit-perfect means: integer samples only, exact source rate, source significant bits preserved; left-justified zero-fill into a wider subslot is allowed; no resampling, gain, dither, mixing, or DSP. Hardware volume preferred; software volume is opt-in and off by default.
