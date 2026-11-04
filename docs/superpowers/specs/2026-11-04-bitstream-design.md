@@ -173,10 +173,13 @@ and at least one UAC1 DAC become fixtures.
 
 ### 8.3 Format and rate selection
 - Match the FLAC stream's rate against the DAC's advertised rates. Exact match required.
-- Select the streaming alt setting whose format matches channel count and bit depth;
-  prefer a subslot that can hold the source depth. 24-bit may be 3-byte packed or
-  4-byte left-justified; 16-bit may be 2-byte or padded to 4. Zero-padding is allowed;
-  shifting is not.
+- Select the streaming alt setting whose channel count and subslot can hold the source
+  depth. A source may be placed in a wider subslot only by left-justifying it into the
+  DAC's declared valid-bit positions and zero-filling the unused low bits (the standard
+  24-in-32 and 16-in-32 representations). No other scaling, truncation, or dithering.
+  The source's significant bits must be preserved exactly; that is what "bit-perfect"
+  means here, regardless of whether the DAC declares 24 or 32 valid bits. A DAC that
+  cannot hold the source depth in any alt setting is a format mismatch.
 - Set rate before starting the stream:
   - UAC2: `SET_CUR` on the clock source's SAMPLING_FREQ_CONTROL (16.16 Hz).
   - UAC1: `SET_CUR` sampling frequency on the streaming endpoint (3-byte).
@@ -229,9 +232,13 @@ and at least one UAC1 DAC become fixtures.
 - Unsupported: non-stereo, sample rates the DAC lacks, FLAC files with corrupt frames
   (decode error surfaces as a playback error, not silent skipping).
 - **MD5 verification:** the decoder computes MD5 over the exact interleaved PCM it
-  produces. On track completion, compare against STREAMINFO's MD5. This proves decode
-  integrity and that nothing between decode and the ring buffer altered samples. Partial
-  plays report "not verified". Result shown in Now Playing diagnostics and Settings.
+  produces, before any optional software volume. On track completion, compare against
+  STREAMINFO's MD5. This proves decode integrity and that nothing between decode and the
+  ring buffer altered samples. Partial plays report "Partial". If STREAMINFO has no MD5
+  (all zero), the result is "Unavailable", not "Failed". When software volume is enabled,
+  the integrity chip reads "Decode verified" and the path chip carries the
+  not-bit-perfect warning, so the two claims never blur together. Results appear in Now
+  Playing diagnostics and Settings.
 
 ## 10. Library
 
@@ -255,8 +262,8 @@ and at least one UAC1 DAC become fixtures.
   the foreground.
 - **Room schema:**
   - `tracks` (id, uri, title, artist, album, album_artist, track_no, disc_no, year,
-    genre, duration_ms, sample_rate, bit_depth, channels, art_key, folder, size,
-    modified, added_at)
+    genre, duration_ms, sample_rate, bit_depth, channels, has_md5, art_key, folder,
+    size, modified, added_at)
   - `albums` (id, title, album_artist, year, art_key) — derived, rebuilt on scan
   - `artists` (id, name) — derived
   - `playlists` (id, name, created_at, updated_at)
@@ -283,6 +290,12 @@ and at least one UAC1 DAC become fixtures.
   If formats differ, mark the transition as gapped.
 - **Seeking:** libFLAC `seek_absolute` to the target frame; flush ring; resume. Position
   is derived from frames written minus frames still in the ring, not wall clock.
+- **Unplayable tracks:** when auto-advance or shuffle lands on a track the current DAC
+  cannot play (rate/channel mismatch) or that fails to decode, the engine skips to the
+  next playable track, posts a one-line notice, and continues. If none remain it stops
+  with the specific reason. The album/artist "Play bit-perfect" action pre-filters the
+  queue to tracks the connected DAC supports; plain Play keeps the full queue and relies
+  on skip.
 - **Media session:** `SimpleBasePlayer` on the main looper, fed by engine state;
   `MediaSessionService` owns player + session. Foreground service type `mediaPlayback`.
   Notification: art, title/artist/album, transport, and a format line
@@ -299,7 +312,8 @@ and at least one UAC1 DAC become fixtures.
 
 - **Preferred:** UAC feature-unit hardware volume. The Now Playing slider and media
   volume commands set the DAC's own volume in its native step count. This preserves
-  bit-perfection.
+  bit-perfection at any level, because the DAC's volume stage is downstream of the
+  digital transport; "unity" is not required.
 - **If the DAC exposes no standard volume:** the slider is disabled and labelled
   "Fixed output". Settings offers an explicit **Software volume (not bit-perfect)**
   toggle, default off. When on, the badge changes and the app explains why.
@@ -312,11 +326,13 @@ and at least one UAC1 DAC become fixtures.
 Now Playing shows a status chip with three independent facts, each with icon + text
 (never color alone):
 
-1. **Path** — `Bit-perfect` when: stream active, DAC rate == source rate, valid bits ==
-   source depth, hardware/unity volume, no software volume. Otherwise the specific
-   reason (`Resampled`, `Software volume`, `Format mismatch`).
+1. **Path** — `Bit-perfect` when: stream active, DAC rate == source rate, every source
+   significant bit is preserved in the DAC's valid-bit positions with only zero-filled
+   low bits, volume is hardware-controlled (any level) or unity, and software volume is
+   off. Otherwise the specific reason (`Resampled`, `Software volume`, `Format mismatch`).
 2. **Integrity** — `MD5 verified` after a full track whose decoded PCM matches
-   STREAMINFO; `Partial` otherwise; `Failed` on mismatch.
+   STREAMINFO; `Partial` otherwise; `Failed` on mismatch; `Unavailable` when the file
+   carries no MD5.
 3. **Transport** — `0 underruns` for the current track, or a count. Underruns insert
    silence and break continuity even though samples are untouched.
 
@@ -373,8 +389,8 @@ badge.
 | No DAC | `NoDac` state, connect prompt; library fully browsable |
 | USB permission denied | explain, retry, remember choice for session |
 | Interface claim fails / busy | retry once with reset; then typed error with hint (close other audio apps) |
-| Unsupported rate | refuse, name the rate and the DAC's supported set |
-| Unsupported channels | mark track unsupported; do not downmix |
+| Unsupported rate | skip when auto-advancing; refuse with the rate and the DAC's supported set when explicitly requested |
+| Unsupported channels | skip when auto-advancing; mark unsupported when requested; never downmix |
 | Decode error / MD5 mismatch | stop, mark track failed, surface in diagnostics |
 | Underrun | zero-fill, count, keep playing; show in diagnostics |
 | DAC detached | pause, keep queue, offer reconnect/resume |
@@ -390,6 +406,9 @@ badge.
   repository behavior, ViewModel state.
 - **Native tests:** ring buffer SPSC correctness and overflow/underflow behavior via
   host-side CTest; URB packet sizing math including feedback conversion.
+- **Version matrix:** Android 16 is the hardware target; API 29/33/35 emulators cover
+  lifecycle, notification, foreground-service, permission, and UI behavior. minSdk 29 is
+  a supported floor, not a promise of per-OEM testing.
 - **Manual hardware checklist (JA11 + Android 16):** detection and permission, UAC2
   connection, rate switching across 44.1/48/96/192/384, 16/24/32-bit files, gapless
   same-format, gap on format change, seek, pause/resume, background + screen off,
@@ -413,6 +432,10 @@ badge.
 
 ## 18. Milestones
 
+0. **USB feasibility spike:** on the owner's phone, enumerate the JA11, dump descriptors,
+   wrap the fd, claim the interface, and push a short isochronous stream (silence or a
+   known PCM pattern) to confirm the libusb path and kernel-driver contention before the
+   full build. Throwaway code; findings feed the plan.
 1. **Skeleton:** Gradle project, modules, M3 Expressive theme, navigation, fake-data
    library and Now Playing screens. Runs on device/emulator.
 2. **Library:** SAF picker, scanner, FLAC metadata parser, Room, artwork, search,
