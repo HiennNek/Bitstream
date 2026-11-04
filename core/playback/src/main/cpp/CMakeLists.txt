@@ -15,6 +15,10 @@ if(BITSTREAM_HOST_TEST)
     add_executable(ring_buffer_test tests/ring_buffer_test.cpp)
     target_include_directories(ring_buffer_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     add_test(NAME ring_buffer_test COMMAND ring_buffer_test)
+
+    add_executable(pcm_packer_test tests/pcm_packer_test.cpp)
+    target_include_directories(pcm_packer_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME pcm_packer_test COMMAND pcm_packer_test)
     return()
 endif()
 
@@ -64,7 +68,12 @@ add_subdirectory("${FLAC_DIR}" "${CMAKE_BINARY_DIR}/flac" EXCLUDE_FROM_ALL)
 
 add_library(bitstream_audio SHARED
     usb_audio.cpp
+    flac_decoder.cpp
     jni_bridge.cpp
 )
-target_include_directories(bitstream_audio PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(bitstream_audio PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+    "${FLAC_DIR}/include"
+    "${FLAC_DIR}/src/libFLAC/include"
+)
 target_link_libraries(bitstream_audio PRIVATE usb-1.0 FLAC log)

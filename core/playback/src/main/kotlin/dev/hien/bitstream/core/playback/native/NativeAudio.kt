@@ -26,6 +26,37 @@ object NativeAudio {
 
     external fun nativeStartSilence(handle: Long, frames: Long): Int
 
+    /**
+     * Starts decoding [fd] into the USB ring. The handle must have been opened
+     * at the same rate, channel count, and subslot width as the file.
+     */
+    external fun nativePlayFile(
+        handle: Long,
+        fd: Int,
+        startFrame: Long,
+        sampleRate: Int,
+        bitDepth: Int,
+        channels: Int,
+        subslotBytes: Int,
+    ): Int
+
+    /** Queues a same-format file for gapless playback. */
+    external fun nativeEnqueueNext(
+        handle: Long,
+        fd: Int,
+        sampleRate: Int,
+        bitDepth: Int,
+        channels: Int,
+        subslotBytes: Int,
+    ): Int
+
+    /**
+     * Returns `[state, underruns, framesWritten, md5State, errorCode]`.
+     * State: 0 idle, 1 playing, 2 ended, 3 error.
+     * MD5: 0 unavailable/partial, 1 verified, 2 failed.
+     */
+    external fun nativeStats(handle: Long): LongArray
+
     external fun nativeStop(handle: Long)
 
     external fun nativeClose(handle: Long)

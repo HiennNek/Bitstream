@@ -2,7 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/arm64-v8a/libbitstream_audio.so"
+			"path" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/x86_64/libbitstream_audio.so"
 		}
 	],
 	"backtrace" : 1,
@@ -26,19 +26,19 @@
 			{
 				"command" : 0,
 				"file" : 0,
-				"line" : 65,
+				"line" : 69,
 				"parent" : 0
 			},
 			{
 				"command" : 1,
 				"file" : 0,
-				"line" : 70,
+				"line" : 79,
 				"parent" : 0
 			},
 			{
 				"command" : 2,
 				"file" : 0,
-				"line" : 69,
+				"line" : 74,
 				"parent" : 0
 			}
 		]
@@ -72,12 +72,16 @@
 					"path" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/src/main/cpp"
 				},
 				{
-					"backtrace" : 2,
-					"path" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/libusb-1.0.27/libusb"
+					"backtrace" : 3,
+					"path" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/src/libFLAC/include"
 				},
 				{
 					"backtrace" : 2,
-					"path" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3/include"
+					"path" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/libusb-1.0.27/libusb"
 				}
 			],
 			"language" : "CXX",
@@ -92,7 +96,8 @@
 			"sourceIndexes" : 
 			[
 				0,
-				1
+				1,
+				2
 			],
 			"sysroot" : 
 			{
@@ -122,7 +127,7 @@
 			},
 			{
 				"backtrace" : 2,
-				"fragment" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/arm64-v8a/libusb-1.0.so",
+				"fragment" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/x86_64/libusb-1.0.so",
 				"role" : "libraries"
 			},
 			{
@@ -164,7 +169,8 @@
 			"sourceIndexes" : 
 			[
 				0,
-				1
+				1,
+				2
 			]
 		}
 	],
@@ -174,6 +180,12 @@
 			"backtrace" : 1,
 			"compileGroupIndex" : 0,
 			"path" : "usb_audio.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "flac_decoder.cpp",
 			"sourceGroupIndex" : 0
 		},
 		{

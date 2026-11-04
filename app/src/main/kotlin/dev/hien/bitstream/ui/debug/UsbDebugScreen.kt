@@ -3,6 +3,7 @@ package dev.hien.bitstream.ui.debug
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +41,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,6 +61,9 @@ import dev.hien.bitstream.core.playback.usb.UacFormat
 import dev.hien.bitstream.core.playback.usb.UsbDeviceHandle
 import dev.hien.bitstream.core.playback.usb.VolumeRange
 import java.util.Locale
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @Composable
 fun UsbDebugRoute(onBack: () -> Unit) {
@@ -167,7 +172,7 @@ fun UsbDebugScreen(
                     }
                     item { DeviceDetails(connected.device) }
                     item { FormatsSection(connected.device.formats) }
-                    item { SilenceSpikeCard(connected) }
+                    item { NativePlaybackCard(connected) }
                     item { DescriptorSection(connected.device.rawDescriptor) }
                 }
             }
@@ -333,23 +338,98 @@ private fun FormatsSection(formats: List<UacFormat>) {
 }
 
 @Composable
-private fun SilenceSpikeCard(connected: DacState.Connected) {
-    val format = remember(connected.device) {
-        connected.device.formats.firstOrNull { 48_000 in it.sampleRates }
-            ?: connected.device.formats.firstOrNull()
+private fun NativePlaybackCard(connected: DacState.Connected) {
+    val context = LocalContext.current
+    val container = LocalAppContainer.current
+    val scope = rememberCoroutineScope()
+    val device = connected.device
+    val silenceFormat = remember(device) {
+        device.formats.firstOrNull { 48_000 in it.sampleRates } ?: device.formats.firstOrNull()
     }
     var handle by remember(connected.handle.key) { mutableStateOf(0L) }
     var status by remember(connected.handle.key) {
-        mutableStateOf("Ready — streams zeros at 48 kHz through libusb.")
+        mutableStateOf("Ready — native playback is idle.")
+    }
+    var stats by remember(connected.handle.key) { mutableStateOf<LongArray?>(null) }
+
+    fun closeHandle() {
+        if (handle != 0L) {
+            NativeAudio.nativeStop(handle)
+            NativeAudio.nativeClose(handle)
+            handle = 0L
+            stats = null
+        }
+    }
+
+    suspend fun playMatching(predicate: (dev.hien.bitstream.core.model.Track) -> Boolean) {
+        closeHandle()
+        val track = runCatching {
+            container.musicRepository.tracks.first().firstOrNull(predicate)
+        }.getOrNull()
+        if (track == null) {
+            status = "No playable FLAC track in the library."
+            return
+        }
+        val fileFormat = device.formats.firstOrNull {
+            it.channels == track.channels &&
+                it.subslotBytes * 8 >= track.bitDepth &&
+                (it.sampleRates.isEmpty() || track.sampleRate in it.sampleRates)
+        }
+        if (fileFormat == null) {
+            status = "${track.sampleRate} Hz / ${track.bitDepth}-bit " +
+                "is not supported by this DAC."
+            return
+        }
+        val pfd = runCatching {
+            context.contentResolver.openFileDescriptor(Uri.parse(track.uri), "r")
+        }.getOrNull()
+        if (pfd == null) {
+            status = "Could not open the track file."
+            return
+        }
+        val opened = NativeAudio.nativeOpen(
+            fd = connected.fileDescriptor,
+            endpoint = device.endpointAddress,
+            interfaceNumber = device.streamingInterface,
+            altSetting = device.altSetting,
+            subslotBytes = fileFormat.subslotBytes,
+            channels = track.channels,
+            sampleRate = track.sampleRate,
+            syncType = device.syncType.ordinal,
+            feedbackEndpoint = device.feedbackEndpoint ?: 0,
+            clockSourceId = device.clockSourceId ?: 0,
+        )
+        if (opened == 0L) {
+            pfd.close()
+            status = "nativeOpen failed — check logcat for the libusb error."
+            return
+        }
+        handle = opened
+        val result = NativeAudio.nativePlayFile(
+            handle = opened,
+            fd = pfd.fd,
+            startFrame = 0,
+            sampleRate = track.sampleRate,
+            bitDepth = track.bitDepth,
+            channels = track.channels,
+            subslotBytes = fileFormat.subslotBytes,
+        )
+        pfd.close()
+        status = if (result == 0) {
+            "Playing ${track.title} (${track.sampleRate} Hz / ${track.bitDepth}-bit)."
+        } else {
+            "nativePlayFile failed with code $result."
+        }
     }
 
     DisposableEffect(connected.handle.key) {
-        onDispose {
-            if (handle != 0L) {
-                NativeAudio.nativeStop(handle)
-                NativeAudio.nativeClose(handle)
-                handle = 0L
-            }
+        onDispose { closeHandle() }
+    }
+
+    LaunchedEffect(handle) {
+        while (handle != 0L) {
+            stats = NativeAudio.nativeStats(handle)
+            delay(200)
         }
     }
 
@@ -358,53 +438,93 @@ private fun SilenceSpikeCard(connected: DacState.Connected) {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Native USB spike", style = MaterialTheme.typography.titleMedium)
+            Text("Native playback", style = MaterialTheme.typography.titleMedium)
             Text(
                 text = status,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            FilledTonalButton(
-                enabled = format != null,
-                onClick = {
-                    if (handle != 0L) {
-                        NativeAudio.nativeStop(handle)
-                        NativeAudio.nativeClose(handle)
-                        handle = 0L
-                    }
-                    if (format == null) {
-                        status = "No PCM format is available."
-                        return@FilledTonalButton
-                    }
-                    val opened = NativeAudio.nativeOpen(
-                        fd = connected.fileDescriptor,
-                        endpoint = connected.device.endpointAddress,
-                        interfaceNumber = connected.device.streamingInterface,
-                        altSetting = connected.device.altSetting,
-                        subslotBytes = format.subslotBytes,
-                        channels = format.channels,
-                        sampleRate = 48_000,
-                        syncType = connected.device.syncType.ordinal,
-                        feedbackEndpoint = connected.device.feedbackEndpoint ?: 0,
-                        clockSourceId = connected.device.clockSourceId ?: 0,
-                    )
-                    if (opened == 0L) {
-                        status = "nativeOpen failed — check logcat for the libusb error."
-                        return@FilledTonalButton
-                    }
-                    handle = opened
-                    val result = NativeAudio.nativeStartSilence(opened, 96_000L)
-                    status = if (result == 0) {
-                        "Streaming 2 s of silence at 48 kHz (handle $opened)."
-                    } else {
-                        "nativeStartSilence failed with code $result."
-                    }
-                },
-            ) {
-                Text("Send 2 s silence")
+            stats?.let { values ->
+                Text(
+                    text = "state ${stateLabel(values[0].toInt())} • " +
+                        "underruns ${values[1]} • frames ${values[2]} • " +
+                        "MD5 ${md5Label(values[3].toInt())} • error ${values[4]}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(
+                    enabled = silenceFormat != null,
+                    onClick = {
+                        closeHandle()
+                        if (silenceFormat == null) {
+                            status = "No PCM format is available."
+                            return@FilledTonalButton
+                        }
+                        val opened = NativeAudio.nativeOpen(
+                            fd = connected.fileDescriptor,
+                            endpoint = device.endpointAddress,
+                            interfaceNumber = device.streamingInterface,
+                            altSetting = device.altSetting,
+                            subslotBytes = silenceFormat.subslotBytes,
+                            channels = silenceFormat.channels,
+                            sampleRate = 48_000,
+                            syncType = device.syncType.ordinal,
+                            feedbackEndpoint = device.feedbackEndpoint ?: 0,
+                            clockSourceId = device.clockSourceId ?: 0,
+                        )
+                        if (opened == 0L) {
+                            status = "nativeOpen failed — check logcat for the libusb error."
+                            return@FilledTonalButton
+                        }
+                        handle = opened
+                        val result = NativeAudio.nativeStartSilence(opened, 96_000L)
+                        status = if (result == 0) {
+                            "Streaming 2 s of silence at 48 kHz."
+                        } else {
+                            "nativeStartSilence failed with code $result."
+                        }
+                    },
+                ) {
+                    Text("2 s silence")
+                }
+                FilledTonalButton(
+                    onClick = {
+                        scope.launch {
+                            playMatching { it.sampleRate > 0 && it.bitDepth > 0 }
+                        }
+                    },
+                ) {
+                    Text("Play first library track")
+                }
+                FilledTonalButton(
+                    onClick = {
+                        scope.launch {
+                            playMatching { it.sampleRate == 96_000 && it.bitDepth == 24 }
+                        }
+                    },
+                ) {
+                    Text("Play 24/96")
+                }
             }
         }
     }
+}
+
+private fun stateLabel(state: Int): String = when (state) {
+    0 -> "idle"
+    1 -> "playing"
+    2 -> "ended"
+    3 -> "error"
+    else -> state.toString()
+}
+
+private fun md5Label(state: Int): String = when (state) {
+    0 -> "unavailable/partial"
+    1 -> "verified"
+    2 -> "failed"
+    else -> state.toString()
 }
 
 @Composable

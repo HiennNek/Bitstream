@@ -11,7 +11,7 @@
 				}
 			],
 			"type" : "UNINITIALIZED",
-			"value" : "arm64-v8a"
+			"value" : "x86_64"
 		},
 		{
 			"name" : "ANDROID_NDK",
@@ -171,7 +171,7 @@
 				}
 			],
 			"type" : "UNINITIALIZED",
-			"value" : "arm64-v8a"
+			"value" : "x86_64"
 		},
 		{
 			"name" : "CMAKE_ANDROID_NDK",
@@ -259,7 +259,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a"
+			"value" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/x86_64"
 		},
 		{
 			"name" : "CMAKE_CACHE_MAJOR_VERSION",
@@ -1071,7 +1071,7 @@
 				}
 			],
 			"type" : "UNINITIALIZED",
-			"value" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/arm64-v8a"
+			"value" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/x86_64"
 		},
 		{
 			"name" : "CMAKE_LINKER",
@@ -1403,7 +1403,7 @@
 				}
 			],
 			"type" : "UNINITIALIZED",
-			"value" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/arm64-v8a"
+			"value" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/build/intermediates/cxx/Debug/2t552m1l/obj/x86_64"
 		},
 		{
 			"name" : "CMAKE_SHARED_LINKER_FLAGS",
@@ -1643,10 +1643,10 @@
 			[
 				{
 					"name" : "HELPSTRING",
-					"value" : "The CMake toolchain file"
+					"value" : "No help, variable specified on the command line."
 				}
 			],
-			"type" : "FILEPATH",
+			"type" : "UNINITIALIZED",
 			"value" : "/home/hien/Android/Sdk/ndk/29.0.14206865/build/cmake/android.toolchain.cmake"
 		},
 		{
@@ -1735,7 +1735,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a/flac"
+			"value" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/x86_64/flac"
 		},
 		{
 			"name" : "FLAC_IS_TOP_LEVEL",
@@ -1762,24 +1762,12 @@
 			"value" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/third_party/flac-1.4.3"
 		},
 		{
-			"name" : "FLAC__CPU_ARM64",
+			"name" : "FLAC__CPU_X86_64",
 			"properties" : 
 			[
 				{
 					"name" : "HELPSTRING",
 					"value" : "Result of CHECK_CPU_ARCH"
-				}
-			],
-			"type" : "INTERNAL",
-			"value" : "1"
-		},
-		{
-			"name" : "FLAC__HAS_A64NEONINTRIN",
-			"properties" : 
-			[
-				{
-					"name" : "HELPSTRING",
-					"value" : "Result of CHECK_A64NEON"
 				}
 			],
 			"type" : "INTERNAL",
@@ -1795,7 +1783,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "1"
+			"value" : ""
 		},
 		{
 			"name" : "FLAC__HAS_X86INTRIN",
@@ -1807,7 +1795,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : ""
+			"value" : "1"
 		},
 		{
 			"name" : "HAVE_ASSOC_MATH",
@@ -1879,7 +1867,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : ""
+			"value" : "1"
 		},
 		{
 			"name" : "HAVE_DECL_AFTER_STMT_FLAG",
@@ -1894,43 +1882,7 @@
 			"value" : "1"
 		},
 		{
-			"name" : "HAVE_FLAC__CPU_ARM64",
-			"properties" : 
-			[
-				{
-					"name" : "HELPSTRING",
-					"value" : "Result of TRY_COMPILE"
-				}
-			],
-			"type" : "INTERNAL",
-			"value" : "TRUE"
-		},
-		{
-			"name" : "HAVE_FLAC__CPU_IA32",
-			"properties" : 
-			[
-				{
-					"name" : "HELPSTRING",
-					"value" : "Result of TRY_COMPILE"
-				}
-			],
-			"type" : "INTERNAL",
-			"value" : "FALSE"
-		},
-		{
 			"name" : "HAVE_FLAC__CPU_X86_64",
-			"properties" : 
-			[
-				{
-					"name" : "HELPSTRING",
-					"value" : "Result of TRY_COMPILE"
-				}
-			],
-			"type" : "INTERNAL",
-			"value" : "FALSE"
-		},
-		{
-			"name" : "HAVE_FLAC__HAS_A64NEONINTRIN",
 			"properties" : 
 			[
 				{
@@ -2214,6 +2166,18 @@
 			"value" : "ON"
 		},
 		{
+			"name" : "WITH_AVX",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Enable AVX, AVX2 optimizations (with runtime detection, resulting binary does not require AVX2, so only necessary when a compiler doesn't know about AVX)"
+				}
+			],
+			"type" : "BOOL",
+			"value" : "ON"
+		},
+		{
 			"name" : "WITH_FORTIFY_SOURCE",
 			"properties" : 
 			[
@@ -2271,7 +2235,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/arm64-v8a"
+			"value" : "/home/hien/Projects/bitstream/.worktrees/bitstream-implementation/core/playback/.cxx/Debug/2t552m1l/x86_64"
 		},
 		{
 			"name" : "bitstream_audio_IS_TOP_LEVEL",
