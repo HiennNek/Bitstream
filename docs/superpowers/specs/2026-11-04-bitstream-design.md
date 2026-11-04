@@ -6,7 +6,7 @@
 
 ## 1. Intent and why
 
-A phone-local music player for people who care about the digital path. It plays FLAC
+A device-local music player for people who care about the digital path. It plays FLAC
 files from storage and sends integer PCM straight to a USB DAC through a native USB
 audio driver, bypassing Android's mixer, resampler, and effects. The UI is Material 3
 Expressive.
@@ -46,6 +46,7 @@ No accounts, no network, no telemetry.
 - Output through the phone speaker, Bluetooth, or the Android audio mixer. Playback
   requires a USB DAC.
 - Tag editing, folder management, lyrics, visualizers.
+- CUE sheets and single-file albums. One FLAC file is one track in v1.
 - Resampling fallback for DACs that lack the source rate. v1 refuses and explains.
 
 ## 4. Anti-goals (would mean the design failed)
@@ -60,11 +61,17 @@ No accounts, no network, no telemetry.
 ## 5. Constraints
 
 **Hardware / platform**
-- Android 10+ (minSdk 29), compile/target SDK 36, Android 16 test device.
-- USB host mode required. The phone must supply bus power to the DAC.
+- Android 10+ (minSdk 29), compile/target SDK 36.
+- Primary test device: Samsung Galaxy Tab S10 FE (SM-X526B), Android 16 / API 36, USB-C
+  host confirmed active. It is a tablet, so medium/expanded and landscape layouts are
+  first-class, not an afterthought.
+- USB host mode required. The device must supply bus power to the DAC.
 - Test DAC: JadeAudio/FiiO JA11, UAC2 by default (UAC1 switchable only via FiiO
   Control), PCM up to 384 kHz/32-bit, hardware volume in 60 steps, PEQ in the dongle
   DSP, no physical buttons.
+- The development phone is reachable over adb wireless and the JA11 is attached, so USB
+  work is hardware-in-the-loop from the start. No UAC1 DAC is available; UAC1 support is
+  parser-fixture-tested and marked best-effort.
 - Android's `UsbDeviceConnection` supports control, bulk, and interrupt transfers only.
   Isochronous transfers require native code.
 - The kernel's USB audio driver may already own the interface; we claim it forcibly and
@@ -245,6 +252,9 @@ and at least one UAC1 DAC become fixtures.
 - **Source:** Storage Access Framework. The user picks one or more folders with
   `ACTION_OPEN_DOCUMENT_TREE`; persisted read permission. No `READ_MEDIA_AUDIO`, no
   broad storage permission. Works with internal storage and SD cards.
+- **Scale assumption:** tens of thousands of tracks at most, on internal storage or SD
+  card. One FLAC file per track. The scanner must stay responsive at that size but is not
+  designed for 100k-track libraries.
 - **Scanner:** breadth-first walk of `DocumentFile`s, filter `.flac` (case-insensitive).
   Read metadata by parsing the first metadata blocks through `ContentResolver`:
   STREAMINFO, VORBIS_COMMENT, PICTURE. Handle an optional leading ID3v2 block
@@ -352,9 +362,11 @@ badge.
 - Edge-to-edge, dark/light/system, predictive back.
 
 **Structure**
+- The primary device is a 10.9" tablet, so the medium/expanded layout is the main
+  experience: `NavigationRail`, list-detail for album/artist, wider album grids, and a
+  persistent queue pane in landscape. Compact is fully designed but secondary.
 - Compact: bottom `NavigationBar` (Library, Search, Playlists, Settings) + mini player
   docked above it.
-- Medium/expanded: `NavigationRail`, list-detail for album/artist, wider grids.
 - Now Playing is a full-screen destination with a shared-element transition from the
   mini player's artwork; back collapses it predictively.
 
@@ -409,7 +421,7 @@ badge.
 - **Version matrix:** Android 16 is the hardware target; API 29/33/35 emulators cover
   lifecycle, notification, foreground-service, permission, and UI behavior. minSdk 29 is
   a supported floor, not a promise of per-OEM testing.
-- **Manual hardware checklist (JA11 + Android 16):** detection and permission, UAC2
+- **Manual hardware checklist (JA11 + Galaxy Tab S10 FE, Android 16):** detection and permission, UAC2
   connection, rate switching across 44.1/48/96/192/384, 16/24/32-bit files, gapless
   same-format, gap on format change, seek, pause/resume, background + screen off,
   notification/lockscreen/headset controls, volume (hardware), detach/re-attach, MD5
@@ -417,7 +429,8 @@ badge.
 - **Bit-perfect evidence:** a set of generated FLAC test files (sine sweeps, known
   patterns, silence boundaries) plus the DAC's own rate display; MD5 must pass for every
   full track; descriptor dump archived for the JA11.
-- **UAC1:** verify with a second UAC1 DAC if available; otherwise parser fixtures only.
+- **UAC1:** no UAC1 hardware is available. Validate the parser and control-request paths
+  with fixtures and mark UAC1 support best-effort until a device is tested.
 
 ## 17. Tooling and dependencies
 
@@ -481,6 +494,16 @@ badge.
 - **Media3 shell only** (`SimpleBasePlayer` + `MediaSessionService`); no ExoPlayer audio.
 - **libFLAC + libusb in native code**; libusb linked shared for LGPL compliance.
 - **PEQ caveat** stated in-app for the JA11.
+- **Bit-perfect format rule:** the source's significant bits must be preserved;
+  left-justified zero-fill into a wider subslot is allowed and still bit-perfect.
+- **MD5 absent** shows `Unavailable`, not failed; software volume demotes the path chip
+  but not the decode-integrity check.
+- **Auto-advance skips unplayable tracks** with a notice; "Play bit-perfect" pre-filters.
+- **Version matrix:** minSdk 29 is the floor; Android 16 is the hardware target and older
+  APIs are emulator-tested.
+- **Hardware loop:** adb wireless + attached JA11, iterative installs and log capture.
+  No UAC1 DAC; UAC1 is best-effort and fixture-tested.
+- **Library:** tens of thousands of tracks max, one file per track, no CUE support.
 
 ## 21. Left to the builder
 
