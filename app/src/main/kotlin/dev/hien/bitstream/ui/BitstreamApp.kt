@@ -13,7 +13,9 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -31,12 +33,12 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
-import dev.hien.bitstream.core.designsystem.DetailEnter
-import dev.hien.bitstream.core.designsystem.DetailExit
-import dev.hien.bitstream.core.designsystem.DetailPopEnter
-import dev.hien.bitstream.core.designsystem.DetailPopExit
-import dev.hien.bitstream.core.designsystem.FadeThroughEnter
-import dev.hien.bitstream.core.designsystem.FadeThroughExit
+import dev.hien.bitstream.core.designsystem.detailEnter
+import dev.hien.bitstream.core.designsystem.detailExit
+import dev.hien.bitstream.core.designsystem.detailPopEnter
+import dev.hien.bitstream.core.designsystem.detailPopExit
+import dev.hien.bitstream.core.designsystem.fadeThroughEnter
+import dev.hien.bitstream.core.designsystem.fadeThroughExit
 import dev.hien.bitstream.core.designsystem.BitstreamTheme
 import dev.hien.bitstream.core.designsystem.trackHue
 import dev.hien.bitstream.ui.adaptive.AdaptiveNavItem
@@ -72,7 +74,7 @@ private enum class Destination(
     Settings("Settings", R.drawable.ic_settings, "settings"),
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BitstreamApp() {
     val container = LocalAppContainer.current
@@ -136,6 +138,9 @@ fun BitstreamApp() {
         albumHue = albumHue,
         albumColors = albumColors,
     ) {
+        val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+        val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+        val slide = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
         AdaptiveNavigationScaffold(items = navItems) {
             SharedTransitionLayout {
             Column(modifier = Modifier.fillMaxSize()) {
@@ -146,19 +151,19 @@ fun BitstreamApp() {
                     ) {
                         composable(
                             route = Destination.Library.route,
-                            enterTransition = { FadeThroughEnter },
-                            exitTransition = { FadeThroughExit },
-                            popEnterTransition = { FadeThroughEnter },
-                            popExitTransition = { FadeThroughExit },
+                            enterTransition = { fadeThroughEnter(effects) },
+                            exitTransition = { fadeThroughExit(effects) },
+                            popEnterTransition = { fadeThroughEnter(effects) },
+                            popExitTransition = { fadeThroughExit(effects) },
                         ) {
                             LibraryRoute(onTrack = container::playTrack)
                         }
                         composable(
                             route = Destination.Search.route,
-                            enterTransition = { FadeThroughEnter },
-                            exitTransition = { FadeThroughExit },
-                            popEnterTransition = { FadeThroughEnter },
-                            popExitTransition = { FadeThroughExit },
+                            enterTransition = { fadeThroughEnter(effects) },
+                            exitTransition = { fadeThroughExit(effects) },
+                            popEnterTransition = { fadeThroughEnter(effects) },
+                            popExitTransition = { fadeThroughExit(effects) },
                         ) {
                             SearchRoute(
                                 onTrack = container::playTrack,
@@ -173,10 +178,10 @@ fun BitstreamApp() {
                         composable(
                             route = ALBUM_DETAIL_ROUTE,
                             arguments = listOf(navArgument("albumId") { type = NavType.StringType }),
-                            enterTransition = { DetailEnter },
-                            exitTransition = { DetailExit },
-                            popEnterTransition = { DetailPopEnter },
-                            popExitTransition = { DetailPopExit },
+                            enterTransition = { detailEnter(slide, effects) },
+                            exitTransition = { detailExit(slide, effects) },
+                            popEnterTransition = { detailPopEnter(slide, effects) },
+                            popExitTransition = { detailPopExit(slide, effects) },
                         ) { entry ->
                             val albumId = Uri.decode(entry.arguments?.getString("albumId").orEmpty())
                             AlbumScreen(
@@ -188,10 +193,10 @@ fun BitstreamApp() {
                         composable(
                             route = ARTIST_DETAIL_ROUTE,
                             arguments = listOf(navArgument("artistId") { type = NavType.StringType }),
-                            enterTransition = { DetailEnter },
-                            exitTransition = { DetailExit },
-                            popEnterTransition = { DetailPopEnter },
-                            popExitTransition = { DetailPopExit },
+                            enterTransition = { detailEnter(slide, effects) },
+                            exitTransition = { detailExit(slide, effects) },
+                            popEnterTransition = { detailPopEnter(slide, effects) },
+                            popExitTransition = { detailPopExit(slide, effects) },
                         ) { entry ->
                             val artistId = Uri.decode(entry.arguments?.getString("artistId").orEmpty())
                             ArtistScreen(
@@ -202,19 +207,19 @@ fun BitstreamApp() {
                         }
                         composable(
                             route = Destination.Playlists.route,
-                            enterTransition = { FadeThroughEnter },
-                            exitTransition = { FadeThroughExit },
-                            popEnterTransition = { FadeThroughEnter },
-                            popExitTransition = { FadeThroughExit },
+                            enterTransition = { fadeThroughEnter(effects) },
+                            exitTransition = { fadeThroughExit(effects) },
+                            popEnterTransition = { fadeThroughEnter(effects) },
+                            popExitTransition = { fadeThroughExit(effects) },
                         ) {
                             PlaylistsRoute(onTrack = container::playTrack)
                         }
                         composable(
                             route = Destination.Settings.route,
-                            enterTransition = { FadeThroughEnter },
-                            exitTransition = { FadeThroughExit },
-                            popEnterTransition = { FadeThroughEnter },
-                            popExitTransition = { FadeThroughExit },
+                            enterTransition = { fadeThroughEnter(effects) },
+                            exitTransition = { fadeThroughExit(effects) },
+                            popEnterTransition = { fadeThroughEnter(effects) },
+                            popExitTransition = { fadeThroughExit(effects) },
                         ) {
                             SettingsRoute(
                                 onUsbDiagnostics = { navController.navigate(USB_DEBUG_ROUTE) },
@@ -222,19 +227,19 @@ fun BitstreamApp() {
                         }
                         composable(
                             route = USB_DEBUG_ROUTE,
-                            enterTransition = { DetailEnter },
-                            exitTransition = { DetailExit },
-                            popEnterTransition = { DetailPopEnter },
-                            popExitTransition = { DetailPopExit },
+                            enterTransition = { detailEnter(slide, effects) },
+                            exitTransition = { detailExit(slide, effects) },
+                            popEnterTransition = { detailPopEnter(slide, effects) },
+                            popExitTransition = { detailPopExit(slide, effects) },
                         ) {
                             DiagnosticsScreen(onBack = { navController.popBackStack() })
                         }
                         composable(
                             route = FAVORITES_ROUTE,
-                            enterTransition = { DetailEnter },
-                            exitTransition = { DetailExit },
-                            popEnterTransition = { DetailPopEnter },
-                            popExitTransition = { DetailPopExit },
+                            enterTransition = { detailEnter(slide, effects) },
+                            exitTransition = { detailExit(slide, effects) },
+                            popEnterTransition = { detailPopEnter(slide, effects) },
+                            popExitTransition = { detailPopExit(slide, effects) },
                         ) {
                             FavoritesRoute(
                                 onTrack = container::playTrack,
@@ -243,10 +248,10 @@ fun BitstreamApp() {
                         }
                         composable(
                             route = NOW_PLAYING_ROUTE,
-                            enterTransition = { DetailEnter },
-                            exitTransition = { DetailExit },
-                            popEnterTransition = { DetailPopEnter },
-                            popExitTransition = { DetailPopExit },
+                            enterTransition = { detailEnter(slide, effects) },
+                            exitTransition = { detailExit(slide, effects) },
+                            popEnterTransition = { detailPopEnter(slide, effects) },
+                            popExitTransition = { detailPopExit(slide, effects) },
                         ) {
                             NowPlayingRoute(
                                 onBack = { navController.popBackStack() },
