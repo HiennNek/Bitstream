@@ -13,6 +13,7 @@ import dev.hien.bitstream.BitstreamApp as BitstreamApplication
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.core.designsystem.BitstreamTheme
 import dev.hien.bitstream.ui.BitstreamApp
+import dev.hien.bitstream.ui.nowplaying.NowPlayingRoute
 import org.junit.Rule
 import org.junit.Test
 
@@ -54,5 +55,23 @@ class AdaptiveLayoutTest {
         }
         composeRule.onNodeWithTag("navigation_rail").assertIsDisplayed()
         composeRule.onNodeWithTag("navigation_bar").assertDoesNotExist()
+    }
+
+    @Test
+    fun expanded_width_shows_two_pane_player() {
+        val app = ApplicationProvider.getApplicationContext<BitstreamApplication>()
+        composeRule.setContent {
+            CompositionLocalProvider(LocalAppContainer provides app.container) {
+                BitstreamTheme {
+                    DeviceConfigurationOverride(
+                        DeviceConfigurationOverride.ForcedSize(DpSize(1280.dp, 800.dp)),
+                    ) {
+                        NowPlayingRoute()
+                    }
+                }
+            }
+        }
+        composeRule.onNodeWithTag("now_playing_song_list").assertIsDisplayed()
+        composeRule.onNodeWithTag("now_playing_pane").assertIsDisplayed()
     }
 }

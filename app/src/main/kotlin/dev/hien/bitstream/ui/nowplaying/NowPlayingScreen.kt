@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -20,6 +21,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -65,6 +68,8 @@ import dev.hien.bitstream.core.model.Track
 import dev.hien.bitstream.core.playback.usb.DacState
 import dev.hien.bitstream.ui.components.CoverArt
 import dev.hien.bitstream.ui.library.FavoritesViewModel
+import dev.hien.bitstream.ui.library.LibraryViewModel
+import dev.hien.bitstream.ui.library.TrackRow
 import dev.hien.bitstream.ui.queue.QueuePane
 import dev.hien.bitstream.ui.queue.QueueSheet
 import dev.hien.bitstream.ui.queue.QueueViewModel
@@ -93,11 +98,17 @@ fun NowPlayingRoute(
             initializer { QueueViewModel(container.playbackEngine) }
         },
     )
+    val libraryViewModel: LibraryViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer { LibraryViewModel(container.musicRepository, container.scanning) }
+        },
+    )
     val state by viewModel.state.collectAsState()
     val positionMs by viewModel.positionMs.collectAsState()
     val durationMs by viewModel.durationMs.collectAsState()
     val favoritesState by favoritesViewModel.state.collectAsState()
     val queueState by queueViewModel.state.collectAsState()
+    val libraryState by libraryViewModel.state.collectAsState()
     val dacState by container.usbDeviceManager.state.collectAsState()
     var showOutputSheet by rememberSaveable { mutableStateOf(false) }
     var showQueue by rememberSaveable { mutableStateOf(false) }
@@ -107,57 +118,99 @@ fun NowPlayingRoute(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isExpandedWidth = maxWidth >= 840.dp
-        NowPlayingContent(
-            state = effectiveState,
-            positionMs = positionMs,
-            durationMs = durationMs,
-            favoriteIds = favoritesState.favoriteIds,
-            onBack = onBack,
-            onPlayPause = viewModel::togglePlayPause,
-            onSeek = viewModel::seekTo,
-            onNext = viewModel::next,
-            onPrevious = viewModel::previous,
-            onToggleShuffle = viewModel::toggleShuffle,
-            onCycleRepeat = viewModel::cycleRepeat,
-            onToggleFavorite = favoritesViewModel::toggle,
-            onHardwareVolume = viewModel::setHardwareVolume,
-            onSoftwareVolume = viewModel::setSoftwareVolume,
-            onSoftwareVolumeLevel = viewModel::setSoftwareVolumeLevel,
-            onQueue = {
-                showQueue = !showQueue
-                onQueue()
-            },
-            onOutput = { showOutputSheet = true },
-            sharedTransitionScope = sharedTransitionScope,
-            animatedVisibilityScope = animatedVisibilityScope,
-            supportingQueuePane = if (isExpandedWidth && showQueue) {
-                {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        shape = RoundedCornerShape(Radii.xl),
-                        modifier = Modifier
-                            .width(340.dp)
-                            .fillMaxHeight(),
-                    ) {
-                        QueuePane(
-                            state = queueState,
-                            onMove = queueViewModel::move,
-                            onRemove = queueViewModel::remove,
-                            onPlay = queueViewModel::play,
-                            onToggleShuffle = queueViewModel::toggleShuffle,
-                            onCycleRepeat = queueViewModel::cycleRepeat,
-                            onClose = { showQueue = false },
-                            modifier = Modifier.fillMaxSize(),
+        val playerContent: @Composable () -> Unit = {
+            NowPlayingContent(
+                state = effectiveState,
+                positionMs = positionMs,
+                durationMs = durationMs,
+                favoriteIds = favoritesState.favoriteIds,
+                onBack = onBack,
+                onPlayPause = viewModel::togglePlayPause,
+                onSeek = viewModel::seekTo,
+                onNext = viewModel::next,
+                onPrevious = viewModel::previous,
+                onToggleShuffle = viewModel::toggleShuffle,
+                onCycleRepeat = viewModel::cycleRepeat,
+                onToggleFavorite = favoritesViewModel::toggle,
+                onHardwareVolume = viewModel::setHardwareVolume,
+                onSoftwareVolume = viewModel::setSoftwareVolume,
+                onSoftwareVolumeLevel = viewModel::setSoftwareVolumeLevel,
+                onQueue = {
+                    showQueue = !showQueue
+                    onQueue()
+                },
+                onOutput = { showOutputSheet = true },
+                sharedTransitionScope = sharedTransitionScope,
+                animatedVisibilityScope = animatedVisibilityScope,
+                supportingQueuePane = if (isExpandedWidth && showQueue) {
+                    {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            shape = RoundedCornerShape(Radii.xl),
+                            modifier = Modifier
+                                .width(340.dp)
+                                .fillMaxHeight(),
+                        ) {
+                            QueuePane(
+                                state = queueState,
+                                onMove = queueViewModel::move,
+                                onRemove = queueViewModel::remove,
+                                onPlay = queueViewModel::play,
+                                onToggleShuffle = queueViewModel::toggleShuffle,
+                                onCycleRepeat = queueViewModel::cycleRepeat,
+                                onClose = { showQueue = false },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
+                } else {
+                    null
+                },
+            )
+        }
+
+        if (isExpandedWidth) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .width(320.dp)
+                        .fillMaxHeight()
+                        .testTag("now_playing_song_list"),
+                    contentPadding = PaddingValues(
+                        horizontal = Spacing.md,
+                        vertical = Spacing.lg,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                ) {
+                    items(libraryState.tracks, key = { it.id }) { track ->
+                        TrackRow(
+                            track = track,
+                            onClick = { container.playTrack(track.id) },
+                            leading = {
+                                CoverArt(
+                                    track = track,
+                                    modifier = Modifier.size(48.dp),
+                                )
+                            },
                         )
                     }
                 }
-            } else {
-                null
-            },
-        )
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainer,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .testTag("now_playing_pane"),
+                ) {
+                    playerContent()
+                }
+            }
+        } else {
+            playerContent()
 
-        if (!isExpandedWidth && showQueue) {
-            QueueSheet(onDismiss = { showQueue = false })
+            if (showQueue) {
+                QueueSheet(onDismiss = { showQueue = false })
+            }
         }
     }
 
