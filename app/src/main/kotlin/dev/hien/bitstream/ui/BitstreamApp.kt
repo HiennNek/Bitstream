@@ -5,6 +5,11 @@ import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,10 +31,17 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
+import dev.hien.bitstream.core.designsystem.DetailEnter
+import dev.hien.bitstream.core.designsystem.DetailExit
+import dev.hien.bitstream.core.designsystem.DetailPopEnter
+import dev.hien.bitstream.core.designsystem.DetailPopExit
+import dev.hien.bitstream.core.designsystem.FadeThroughEnter
+import dev.hien.bitstream.core.designsystem.FadeThroughExit
 import dev.hien.bitstream.ui.adaptive.AdaptiveNavItem
 import dev.hien.bitstream.ui.adaptive.AdaptiveNavigationScaffold
 import dev.hien.bitstream.ui.library.AlbumScreen
 import dev.hien.bitstream.ui.library.ArtistScreen
+import dev.hien.bitstream.ui.library.FavoritesRoute
 import dev.hien.bitstream.ui.library.LibraryRoute
 import dev.hien.bitstream.ui.nowplaying.MiniPlayerBar
 import dev.hien.bitstream.ui.nowplaying.NowPlayingRoute
@@ -41,6 +53,7 @@ import dev.hien.bitstream.ui.settings.SettingsRoute
 
 private const val USB_DEBUG_ROUTE = "usb-debug"
 private const val NOW_PLAYING_ROUTE = "now-playing"
+private const val FAVORITES_ROUTE = "favorites"
 private const val ALBUM_DETAIL_ROUTE = "album/{albumId}"
 private const val ARTIST_DETAIL_ROUTE = "artist/{artistId}"
 
@@ -75,6 +88,7 @@ fun BitstreamApp() {
         .takeIf { it >= 0 }
         ?: when (currentRoute) {
             USB_DEBUG_ROUTE -> destinations.indexOf(Destination.Settings)
+            FAVORITES_ROUTE -> destinations.indexOf(Destination.Library)
             ALBUM_DETAIL_ROUTE, ARTIST_DETAIL_ROUTE -> destinations.indexOf(Destination.Search)
             else -> 0
         }
@@ -110,10 +124,22 @@ fun BitstreamApp() {
                         navController = navController,
                         startDestination = Destination.Library.route,
                     ) {
-                        composable(Destination.Library.route) {
+                        composable(
+                            route = Destination.Library.route,
+                            enterTransition = { FadeThroughEnter },
+                            exitTransition = { FadeThroughExit },
+                            popEnterTransition = { FadeThroughEnter },
+                            popExitTransition = { FadeThroughExit },
+                        ) {
                             LibraryRoute(onTrack = container::playTrack)
                         }
-                        composable(Destination.Search.route) {
+                        composable(
+                            route = Destination.Search.route,
+                            enterTransition = { FadeThroughEnter },
+                            exitTransition = { FadeThroughExit },
+                            popEnterTransition = { FadeThroughEnter },
+                            popExitTransition = { FadeThroughExit },
+                        ) {
                             SearchRoute(
                                 onTrack = container::playTrack,
                                 onAlbum = { albumId ->
@@ -127,6 +153,10 @@ fun BitstreamApp() {
                         composable(
                             route = ALBUM_DETAIL_ROUTE,
                             arguments = listOf(navArgument("albumId") { type = NavType.StringType }),
+                            enterTransition = { DetailEnter },
+                            exitTransition = { DetailExit },
+                            popEnterTransition = { DetailPopEnter },
+                            popExitTransition = { DetailPopExit },
                         ) { entry ->
                             val albumId = Uri.decode(entry.arguments?.getString("albumId").orEmpty())
                             AlbumScreen(
@@ -138,6 +168,10 @@ fun BitstreamApp() {
                         composable(
                             route = ARTIST_DETAIL_ROUTE,
                             arguments = listOf(navArgument("artistId") { type = NavType.StringType }),
+                            enterTransition = { DetailEnter },
+                            exitTransition = { DetailExit },
+                            popEnterTransition = { DetailPopEnter },
+                            popExitTransition = { DetailPopExit },
                         ) { entry ->
                             val artistId = Uri.decode(entry.arguments?.getString("artistId").orEmpty())
                             ArtistScreen(
@@ -146,18 +180,54 @@ fun BitstreamApp() {
                                 onBack = { navController.popBackStack() },
                             )
                         }
-                        composable(Destination.Playlists.route) {
+                        composable(
+                            route = Destination.Playlists.route,
+                            enterTransition = { FadeThroughEnter },
+                            exitTransition = { FadeThroughExit },
+                            popEnterTransition = { FadeThroughEnter },
+                            popExitTransition = { FadeThroughExit },
+                        ) {
                             PlaylistsRoute(onTrack = container::playTrack)
                         }
-                        composable(Destination.Settings.route) {
+                        composable(
+                            route = Destination.Settings.route,
+                            enterTransition = { FadeThroughEnter },
+                            exitTransition = { FadeThroughExit },
+                            popEnterTransition = { FadeThroughEnter },
+                            popExitTransition = { FadeThroughExit },
+                        ) {
                             SettingsRoute(
                                 onUsbDiagnostics = { navController.navigate(USB_DEBUG_ROUTE) },
                             )
                         }
-                        composable(USB_DEBUG_ROUTE) {
+                        composable(
+                            route = USB_DEBUG_ROUTE,
+                            enterTransition = { DetailEnter },
+                            exitTransition = { DetailExit },
+                            popEnterTransition = { DetailPopEnter },
+                            popExitTransition = { DetailPopExit },
+                        ) {
                             DiagnosticsScreen(onBack = { navController.popBackStack() })
                         }
-                        composable(NOW_PLAYING_ROUTE) {
+                        composable(
+                            route = FAVORITES_ROUTE,
+                            enterTransition = { DetailEnter },
+                            exitTransition = { DetailExit },
+                            popEnterTransition = { DetailPopEnter },
+                            popExitTransition = { DetailPopExit },
+                        ) {
+                            FavoritesRoute(
+                                onTrack = container::playTrack,
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
+                        composable(
+                            route = NOW_PLAYING_ROUTE,
+                            enterTransition = { DetailEnter },
+                            exitTransition = { DetailExit },
+                            popEnterTransition = { DetailPopEnter },
+                            popExitTransition = { DetailPopExit },
+                        ) {
                             NowPlayingRoute(
                                 onBack = { navController.popBackStack() },
                                 sharedTransitionScope = this@SharedTransitionLayout,
@@ -169,6 +239,14 @@ fun BitstreamApp() {
 
                 AnimatedVisibility(
                     visible = currentRoute != NOW_PLAYING_ROUTE && nowPlayingState.track != null,
+                    enter = slideInVertically(
+                        animationSpec = tween(250),
+                        initialOffsetY = { it },
+                    ) + fadeIn(tween(250)),
+                    exit = slideOutVertically(
+                        animationSpec = tween(150),
+                        targetOffsetY = { it },
+                    ) + fadeOut(tween(150)),
                 ) {
                     MiniPlayerBar(
                         state = nowPlayingState,
