@@ -4,18 +4,15 @@ import android.content.Intent
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -29,7 +26,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -50,7 +46,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,11 +54,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import coil3.compose.AsyncImage
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
+import dev.hien.bitstream.core.designsystem.BitstreamEmptyState
+import dev.hien.bitstream.core.designsystem.BitstreamSectionHeader
+import dev.hien.bitstream.core.designsystem.Radii
+import dev.hien.bitstream.core.designsystem.Spacing
+import dev.hien.bitstream.core.designsystem.formatRateDepth
 import dev.hien.bitstream.core.model.Album
 import dev.hien.bitstream.core.model.Track
+import dev.hien.bitstream.ui.components.CoverArt
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
@@ -210,9 +210,9 @@ private fun LibraryContent(
         state = gridState,
         columns = GridCells.Adaptive(minSize = 160.dp),
         modifier = modifier,
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(Spacing.screen),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
     ) {
         if (state.isScanning) {
             item(span = { GridItemSpan(maxLineSpan) }) {
@@ -228,7 +228,7 @@ private fun LibraryContent(
 
         if (state.artists.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                SectionHeader("Artists")
+                BitstreamSectionHeader("Artists", modifier = Modifier.padding(top = Spacing.sm))
             }
             item(span = { GridItemSpan(maxLineSpan) }) {
                 LazyRow(
@@ -246,7 +246,7 @@ private fun LibraryContent(
         }
 
         item(span = { GridItemSpan(maxLineSpan) }) {
-            SectionHeader("Albums")
+            BitstreamSectionHeader("Albums", modifier = Modifier.padding(top = Spacing.sm))
         }
         items(state.albums, key = { "album-${it.id}" }) { album ->
             AlbumCard(album = album, onClick = { onAlbum(album.id) })
@@ -254,7 +254,7 @@ private fun LibraryContent(
 
         if (state.tracks.isNotEmpty()) {
             item(span = { GridItemSpan(maxLineSpan) }) {
-                SectionHeader("Tracks")
+                BitstreamSectionHeader("Tracks", modifier = Modifier.padding(top = Spacing.sm))
             }
             items(
                 items = state.tracks.take(MAX_LIBRARY_TRACKS),
@@ -273,39 +273,26 @@ private fun EmptyLibrary(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(32.dp),
+        modifier = modifier.padding(Spacing.xxxl),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_library_music),
-            contentDescription = null,
-            modifier = Modifier.size(56.dp),
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.height(16.dp))
-        Text("Your library is empty", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Choose a folder of FLAC files. Bitstream reads the metadata only and never " +
+        BitstreamEmptyState(
+            title = "Your library is empty",
+            message = "Choose a folder of FLAC files. Bitstream reads the metadata only and never " +
                 "touches the audio.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            icon = {
+                Icon(
+                    painter = painterResource(R.drawable.ic_library_music),
+                    contentDescription = null,
+                    modifier = Modifier.size(56.dp),
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            },
+            actionLabel = "Choose folder",
+            onAction = onPickFolder,
         )
-        Spacer(Modifier.height(24.dp))
-        Button(onClick = onPickFolder) {
-            Text("Choose folder")
-        }
     }
-}
-
-@Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.padding(top = 8.dp),
-    )
 }
 
 @Composable
@@ -318,7 +305,7 @@ private fun AlbumCard(album: Album, onClick: () -> Unit) {
                     .fillMaxWidth()
                     .aspectRatio(1f),
             )
-            Column(Modifier.padding(12.dp)) {
+            Column(Modifier.padding(Spacing.md)) {
                 Text(
                     text = album.title,
                     style = MaterialTheme.typography.titleMedium,
@@ -339,30 +326,11 @@ private fun AlbumCard(album: Album, onClick: () -> Unit) {
 
 @Composable
 fun AlbumArtwork(uri: String?, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(12.dp)
-    if (uri.isNullOrBlank()) {
-        Box(
-            modifier = modifier
-                .clip(shape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_library_music),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    } else {
-        AsyncImage(
-            model = uri,
-            contentDescription = null,
-            modifier = modifier
-                .clip(shape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentScale = ContentScale.Crop,
-        )
-    }
+    CoverArt(
+        artworkUri = uri,
+        seed = (uri ?: "").hashCode().toLong(),
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -383,22 +351,12 @@ fun TrackRow(track: Track, onClick: () -> Unit) {
             }
         },
         trailingContent = {
-            val format = formatLabel(track)
+            val format = formatRateDepth(track.bitDepth, track.sampleRate)
             if (format.isNotBlank()) {
                 Text(format, style = MaterialTheme.typography.labelMedium)
             }
         },
     )
-}
-
-fun formatLabel(track: Track): String {
-    if (track.bitDepth <= 0 || track.sampleRate <= 0) return ""
-    val rate = if (track.sampleRate % 1000 == 0) {
-        (track.sampleRate / 1000).toString()
-    } else {
-        String.format("%.1f", track.sampleRate / 1000.0)
-    }
-    return "${track.bitDepth}/$rate"
 }
 
 @Composable
