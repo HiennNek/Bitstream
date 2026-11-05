@@ -3,6 +3,7 @@ package dev.hien.bitstream.ui.nowplaying
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +28,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -594,7 +596,7 @@ fun NowPlayingArtwork(
  * Persistent mini player bar anchored above the bottom navigation bar or inside
  * the main content scaffold.
  */
-@OptIn(ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MiniPlayerBar(
     state: NowPlayingUiState,
@@ -606,10 +608,18 @@ fun MiniPlayerBar(
     modifier: Modifier = Modifier,
 ) {
     val track = state.track ?: return
+    val progress = if (state.duration > 0) {
+        state.position.toFloat() / state.duration
+    } else {
+        0f
+    }
+    val playCorner by animateDpAsState(
+        targetValue = if (state.isPlaying) 26.dp else 18.dp,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "miniPlayCorner",
+    )
     Surface(
-        tonalElevation = 4.dp,
-        shadowElevation = 4.dp,
-        shape = RoundedCornerShape(Radii.lg),
+        shape = RoundedCornerShape(Radii.tile),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier
             .fillMaxWidth()
@@ -617,66 +627,86 @@ fun MiniPlayerBar(
             .clickable(onClick = onOpenNowPlaying)
             .testTag("mini_player_bar"),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            CoverArt(
-                track = track,
-                modifier = Modifier.size(48.dp),
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    text = track.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                CoverArt(
+                    track = track,
+                    modifier = Modifier.size(52.dp),
                 )
-                val subtitle = buildString {
-                    if (track.artist.isNotBlank()) append(track.artist)
-                    if (state.formatLabel.isNotBlank()) {
-                        if (isNotEmpty()) append(" · ")
-                        append(state.formatLabel)
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = track.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    val subtitle = buildString {
+                        if (track.artist.isNotBlank()) append(track.artist)
+                        if (state.formatLabel.isNotBlank()) {
+                            if (isNotEmpty()) append(" · ")
+                            append(state.formatLabel)
+                        }
+                        append(" · ")
+                        append(pathLabel(state.path, state.volume))
                     }
-                    append(" · ")
-                    append(pathLabel(state.path, state.volume))
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Surface(
+                    onClick = onPlayPause,
+                    shape = RoundedCornerShape(playCorner),
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier
+                        .size(width = 56.dp, height = 52.dp)
+                        .testTag("mini_player_play_pause"),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(
+                                if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
+                            ),
+                            contentDescription = if (state.isPlaying) "Pause" else "Play",
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = onNext,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .testTag("mini_player_next"),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_skip_next),
+                        contentDescription = "Next track",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-            IconButton(
-                onClick = onPlayPause,
-                modifier = Modifier.testTag("mini_player_play_pause"),
-            ) {
-                Icon(
-                    painter = painterResource(
-                        if (state.isPlaying) R.drawable.ic_pause else R.drawable.ic_play,
-                    ),
-                    contentDescription = if (state.isPlaying) "Pause" else "Play",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-            IconButton(
-                onClick = onNext,
-                modifier = Modifier.testTag("mini_player_next"),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_skip_next),
-                    contentDescription = "Next track",
-                    tint = MaterialTheme.colorScheme.onSurface,
-                )
-            }
+            LinearProgressIndicator(
+                progress = { progress },
+                gapSize = 0.dp,
+                drawStopIndicator = {},
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.dp)
+                    .height(4.dp),
+            )
         }
     }
 }

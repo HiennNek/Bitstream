@@ -129,7 +129,9 @@ fun BitstreamApp() {
                     contentDescription = destination.label,
                 )
             },
-            labelContent = { Text(destination.label) },
+            labelContent = {
+                Text(destination.label, style = MaterialTheme.typography.labelMedium)
+            },
         )
     }
 

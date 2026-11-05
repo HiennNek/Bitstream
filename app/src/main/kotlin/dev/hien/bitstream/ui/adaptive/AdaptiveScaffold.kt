@@ -7,10 +7,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -64,6 +67,7 @@ fun AdaptiveNavigationScaffold(
                             content()
                         }
                         NavigationBar(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             modifier = Modifier.testTag("navigation_bar"),
                         ) {
                             items.forEach { item ->
@@ -72,6 +76,11 @@ fun AdaptiveNavigationScaffold(
                                     onClick = item.onClick,
                                     icon = item.icon,
                                     label = item.labelContent,
+                                    colors = NavigationBarItemDefaults.colors(
+                                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
                                 )
                             }
                         }
@@ -81,6 +90,7 @@ fun AdaptiveNavigationScaffold(
                 NavChrome.RAIL -> {
                     Row(modifier = Modifier.fillMaxSize()) {
                         NavigationRail(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .testTag("navigation_rail"),
@@ -91,6 +101,11 @@ fun AdaptiveNavigationScaffold(
                                     onClick = item.onClick,
                                     icon = item.icon,
                                     label = item.labelContent,
+                                    colors = NavigationRailItemDefaults.colors(
+                                        indicatorColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    ),
                                 )
                             }
                         }
