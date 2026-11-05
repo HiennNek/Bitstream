@@ -117,6 +117,22 @@ data class ScanFolderEntity(
     @ColumnInfo(name = "last_scan") val lastScan: Long = 0,
 )
 
+@Entity(
+    tableName = "favorites",
+    foreignKeys = [
+        ForeignKey(
+            entity = TrackEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["track_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class FavoriteEntity(
+    @PrimaryKey @ColumnInfo(name = "track_id") val trackId: Long,
+    @ColumnInfo(name = "added_at") val addedAt: Long,
+)
+
 @Entity(tableName = "playback_state")
 data class PlaybackStateEntity(
     @PrimaryKey val id: Int = 0,

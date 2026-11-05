@@ -92,6 +92,21 @@ class BitstreamDatabaseTest {
     }
 
     @Test
+    fun favoritesToggleAndCascadeWhenTrackIsDeleted() = runBlocking {
+        db.trackDao().upsertAll(listOf(track(id = 1, title = "Blue Train")))
+        db.favoriteDao().set(1, true)
+        assertEquals(setOf(1L), db.favoriteDao().observeIds().first().toSet())
+        assertEquals(listOf(1L), db.favoriteDao().observeTracks().first().map { it.id })
+
+        db.favoriteDao().set(1, false)
+        assertTrue(db.favoriteDao().observeIds().first().isEmpty())
+
+        db.favoriteDao().set(1, true)
+        db.trackDao().deleteByIds(listOf(1))
+        assertTrue(db.favoriteDao().observeIds().first().isEmpty())
+    }
+
+    @Test
     fun playbackStateRoundTripsQueueJson() = runBlocking {
         val store = PlaybackStateStore(db.playbackStateDao())
         store.save(

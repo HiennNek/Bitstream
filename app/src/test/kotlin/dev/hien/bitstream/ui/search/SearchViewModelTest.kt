@@ -73,6 +73,8 @@ private class FakeMusicRepository(private val trackList: List<Track>) : MusicRep
     override val tracks: Flow<List<Track>> = flowOf(trackList)
     override val albums: Flow<List<Album>> = flowOf(emptyList())
     override val artists: Flow<List<Artist>> = flowOf(emptyList())
+    override val favoriteTracks: Flow<List<Track>> = flowOf(emptyList())
+    override val favoriteIds: Flow<Set<Long>> = flowOf(emptySet())
 
     override fun search(query: String): Flow<List<Track>> = flowOf(
         trackList.filter { track ->
@@ -83,6 +85,8 @@ private class FakeMusicRepository(private val trackList: List<Track>) : MusicRep
 
     override suspend fun tracksByIds(ids: List<Long>): List<Track> =
         trackList.filter { it.id in ids }
+
+    override suspend fun setFavorite(trackId: Long, favorite: Boolean) = Unit
 
     override suspend fun rebuildDerived() = Unit
 }

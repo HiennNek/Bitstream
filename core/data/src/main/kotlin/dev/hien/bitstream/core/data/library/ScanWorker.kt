@@ -82,6 +82,7 @@ class ScanWorker(
                 trackDao = database.trackDao(),
                 albumDao = database.albumDao(),
                 artistDao = database.artistDao(),
+                favoriteDao = database.favoriteDao(),
             ).rebuildDerived()
 
             Result.success(workDataOf(KEY_TRACK_COUNT to indexed))

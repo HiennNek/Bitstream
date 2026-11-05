@@ -200,6 +200,36 @@ interface PlaylistDao {
 }
 
 @Dao
+interface FavoriteDao {
+    @Query("SELECT track_id FROM favorites")
+    fun observeIds(): Flow<List<Long>>
+
+    @Query(
+        """
+        SELECT tracks.* FROM favorites
+        INNER JOIN tracks ON tracks.id = favorites.track_id
+        ORDER BY favorites.added_at DESC
+        """,
+    )
+    fun observeTracks(): Flow<List<TrackEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(favorite: FavoriteEntity)
+
+    @Query("DELETE FROM favorites WHERE track_id = :trackId")
+    suspend fun delete(trackId: Long)
+
+    @Transaction
+    suspend fun set(trackId: Long, favorite: Boolean) {
+        if (favorite) {
+            insert(FavoriteEntity(trackId = trackId, addedAt = System.currentTimeMillis()))
+        } else {
+            delete(trackId)
+        }
+    }
+}
+
+@Dao
 interface ScanFolderDao {
     @Query("SELECT * FROM scan_folders ORDER BY display_name COLLATE NOCASE")
     fun observeFolders(): Flow<List<ScanFolderEntity>>

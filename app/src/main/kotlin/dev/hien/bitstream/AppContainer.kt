@@ -43,6 +43,7 @@ class AppContainer(context: Context) {
         trackDao = database.trackDao(),
         albumDao = database.albumDao(),
         artistDao = database.artistDao(),
+        favoriteDao = database.favoriteDao(),
     )
 
     val playlistStore: PlaylistStore = RoomPlaylistStore(database.playlistDao())

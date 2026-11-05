@@ -4,6 +4,7 @@ import dev.hien.bitstream.core.data.db.AlbumDao
 import dev.hien.bitstream.core.data.db.AlbumEntity
 import dev.hien.bitstream.core.data.db.ArtistDao
 import dev.hien.bitstream.core.data.db.ArtistEntity
+import dev.hien.bitstream.core.data.db.FavoriteDao
 import dev.hien.bitstream.core.data.db.TrackDao
 import dev.hien.bitstream.core.data.db.TrackEntity
 import dev.hien.bitstream.core.model.Album
@@ -17,10 +18,14 @@ interface MusicRepository {
     val tracks: Flow<List<Track>>
     val albums: Flow<List<Album>>
     val artists: Flow<List<Artist>>
+    val favoriteTracks: Flow<List<Track>>
+    val favoriteIds: Flow<Set<Long>>
 
     fun search(query: String): Flow<List<Track>>
 
     suspend fun tracksByIds(ids: List<Long>): List<Track>
+
+    suspend fun setFavorite(trackId: Long, favorite: Boolean)
 
     /** Rebuild the derived album and artist tables after a scan or an incremental update. */
     suspend fun rebuildDerived()
@@ -30,6 +35,7 @@ class RoomMusicRepository(
     private val trackDao: TrackDao,
     private val albumDao: AlbumDao,
     private val artistDao: ArtistDao,
+    private val favoriteDao: FavoriteDao,
 ) : MusicRepository {
     override val tracks: Flow<List<Track>> =
         trackDao.observeTracks().map { entities -> entities.map { it.toModel() } }
@@ -43,8 +49,18 @@ class RoomMusicRepository(
     override fun search(query: String): Flow<List<Track>> =
         trackDao.search(query).map { entities -> entities.map { it.toModel() } }
 
+    override val favoriteTracks: Flow<List<Track>> =
+        favoriteDao.observeTracks().map { entities -> entities.map { it.toModel() } }
+
+    override val favoriteIds: Flow<Set<Long>> =
+        favoriteDao.observeIds().map { it.toSet() }
+
     override suspend fun tracksByIds(ids: List<Long>): List<Track> =
         trackDao.tracksByIds(ids).map { it.toModel() }
+
+    override suspend fun setFavorite(trackId: Long, favorite: Boolean) {
+        favoriteDao.set(trackId, favorite)
+    }
 
     override suspend fun rebuildDerived() {
         albumDao.rebuild()
