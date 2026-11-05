@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -23,11 +24,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -44,6 +43,8 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
+import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
+import dev.hien.bitstream.core.designsystem.Radii
 import dev.hien.bitstream.core.designsystem.Spacing
 import dev.hien.bitstream.core.playback.usb.DacState
 
@@ -104,14 +105,16 @@ fun SettingsScreen(
     onDynamicColorChange: (Boolean) -> Unit,
     onUsbDiagnostics: () -> Unit,
 ) {
-    Scaffold(
-        modifier = Modifier.testTag("settings_screen"),
-        topBar = { TopAppBar(title = { Text("Settings") }) },
-    ) { padding ->
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("settings_screen"),
+    ) {
+        BitstreamLargeHeader(title = "Settings")
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .weight(1f),
             contentAlignment = Alignment.TopCenter,
         ) {
             LazyColumn(
@@ -328,7 +331,10 @@ private fun SectionCard(
     title: String,
     content: @Composable () -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(Radii.hero),
+    ) {
         Column(
             modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(Spacing.md),

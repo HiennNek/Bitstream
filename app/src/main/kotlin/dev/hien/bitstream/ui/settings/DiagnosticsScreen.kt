@@ -12,10 +12,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ElevatedCard
@@ -24,11 +24,9 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -42,6 +40,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
+import dev.hien.bitstream.core.designsystem.LabeledValueRow
+import dev.hien.bitstream.core.designsystem.Radii
+import dev.hien.bitstream.core.designsystem.Spacing
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.model.PlaybackState
@@ -152,44 +154,42 @@ fun DiagnosticsScreen(
     val context = LocalContext.current
     var copied by remember { mutableStateOf(false) }
 
-    Scaffold(
-        modifier = Modifier.testTag("diagnostics_screen"),
-        topBar = {
-            TopAppBar(
-                title = { Text("USB Audio Diagnostics") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_arrow_back),
-                            contentDescription = "Back",
-                        )
-                    }
-                },
-                actions = {
-                    TextButton(onClick = { container.usbDeviceManager.refresh() }) {
-                        Text("Refresh")
-                    }
-                },
-            )
-        },
-    ) { padding ->
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag("diagnostics_screen"),
+    ) {
+        BitstreamLargeHeader(title = "USB Audio Diagnostics") {
+            TextButton(onClick = { container.usbDeviceManager.refresh() }) {
+                Text("Refresh")
+            }
+            IconButton(onClick = onBack) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_back),
+                    contentDescription = "Back",
+                )
+            }
+        }
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .weight(1f),
             contentAlignment = Alignment.TopCenter,
         ) {
             LazyColumn(
                 modifier = Modifier
                     .widthIn(max = 840.dp)
                     .fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(Spacing.screen),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
                 if (dacState is DacState.PermissionNeeded) {
                     val needed = dacState as DacState.PermissionNeeded
                     item {
-                        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                        ElevatedCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(Radii.hero),
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -210,34 +210,40 @@ fun DiagnosticsScreen(
                 }
 
                 item {
-                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(Radii.hero),
+                    ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(Spacing.lg),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                         ) {
                             Text(
                                 text = "Stream & USB Isochronous Telemetry",
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             HorizontalDivider()
-                            DiagnosticRow("UAC version", summary.uacVersion)
-                            DiagnosticRow("Alt setting", summary.altSetting)
-                            DiagnosticRow("Endpoint", summary.endpoint)
-                            DiagnosticRow("Sync type", summary.syncType)
-                            DiagnosticRow("Subslot / valid bits", summary.subslotAndValidBits)
-                            DiagnosticRow("Sample rate", summary.sampleRate)
-                            DiagnosticRow("Ring buffer fill", summary.ringFill)
-                            DiagnosticRow("URB stats", summary.urbStats)
-                            DiagnosticRow("libusb errors", summary.libusbErrors)
+                            LabeledValueRow(label = "UAC version", value = summary.uacVersion)
+                            LabeledValueRow(label = "Alt setting", value = summary.altSetting)
+                            LabeledValueRow(label = "Endpoint", value = summary.endpoint)
+                            LabeledValueRow(label = "Sync type", value = summary.syncType)
+                            LabeledValueRow(label = "Subslot / valid bits", value = summary.subslotAndValidBits)
+                            LabeledValueRow(label = "Sample rate", value = summary.sampleRate)
+                            LabeledValueRow(label = "Ring buffer fill", value = summary.ringFill)
+                            LabeledValueRow(label = "URB stats", value = summary.urbStats)
+                            LabeledValueRow(label = "libusb errors", value = summary.libusbErrors)
                         }
                     }
                 }
 
                 item {
-                    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(Radii.hero),
+                    ) {
                         Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(Spacing.lg),
+                            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -278,7 +284,7 @@ fun DiagnosticsScreen(
                                         },
                                         modifier = Modifier
                                             .horizontalScroll(rememberScrollState())
-                                            .padding(12.dp),
+                                            .padding(Spacing.md),
                                         style = MaterialTheme.typography.bodySmall,
                                         fontFamily = FontFamily.Monospace,
                                         softWrap = false,
@@ -290,23 +296,6 @@ fun DiagnosticsScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun DiagnosticRow(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            modifier = Modifier.width(160.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-        )
     }
 }
 

@@ -3,8 +3,8 @@ package dev.hien.bitstream.ui.playlists
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -27,7 +28,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -36,8 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -51,6 +51,10 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
+import dev.hien.bitstream.core.designsystem.BitstreamEmptyState
+import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
+import dev.hien.bitstream.core.designsystem.Radii
+import dev.hien.bitstream.core.designsystem.Spacing
 import dev.hien.bitstream.core.model.Track
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -143,7 +147,7 @@ private fun PlaylistList(
     var showCreate by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Playlists") }) },
+        topBar = { BitstreamLargeHeader(title = "Playlists") },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreate = true }) {
                 Icon(
@@ -154,35 +158,37 @@ private fun PlaylistList(
         },
     ) { padding ->
         if (state.playlists.isEmpty()) {
-            Box(
+            BitstreamEmptyState(
+                title = "No playlists yet",
+                message = "Create one to collect tracks.",
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "No playlists yet. Create one to collect tracks.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+                    .padding(Spacing.xxxl),
+            )
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
+                contentPadding = PaddingValues(
+                    start = Spacing.md,
+                    end = Spacing.md,
+                    bottom = Spacing.xxl,
+                ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
             ) {
                 items(state.playlists, key = { it.id }) { playlist ->
                     ListItem(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = 64.dp)
+                            .clip(RoundedCornerShape(Radii.tile))
                             .clickable { onSelect(playlist.id) },
                         content = {
                             Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         },
                     )
-                    HorizontalDivider()
                 }
             }
         }
@@ -221,47 +227,38 @@ private fun PlaylistDetail(
     var showAddTracks by rememberSaveable { mutableStateOf(false) }
     val tracksById = remember(state.tracks) { state.tracks.associateBy { it.id } }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_arrow_back),
-                            contentDescription = "Back",
-                        )
-                    }
-                },
-                actions = {
-                    TextButton(onClick = { showAddTracks = true }) { Text("Add tracks") }
-                    TextButton(onClick = { showRename = true }) { Text("Rename") }
-                    TextButton(onClick = { showDelete = true }) { Text("Delete") }
-                },
-            )
-        },
-    ) { padding ->
-        if (state.entries.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "This playlist is empty.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+    Column(modifier = Modifier.fillMaxSize()) {
+        BitstreamLargeHeader(title = playlist.name) {
+            TextButton(onClick = { showAddTracks = true }) { Text("Add tracks") }
+            TextButton(onClick = { showRename = true }) { Text("Rename") }
+            TextButton(onClick = { showDelete = true }) { Text("Delete") }
+            IconButton(onClick = onBack) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_back),
+                    contentDescription = "Back",
                 )
             }
+        }
+
+        if (state.entries.isEmpty()) {
+            BitstreamEmptyState(
+                title = "This playlist is empty.",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
+                    .padding(Spacing.xxxl),
+            )
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .weight(1f),
+                contentPadding = PaddingValues(
+                    start = Spacing.md,
+                    end = Spacing.md,
+                    bottom = Spacing.xxl,
+                ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
             ) {
                 itemsIndexed(
                     items = state.entries,
@@ -363,6 +360,8 @@ private fun PlaylistEntryRow(
     ListItem(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 64.dp)
+            .clip(RoundedCornerShape(Radii.tile))
             .offset { IntOffset(0, dragY.roundToInt()) }
             .zIndex(if (dragY != 0f) 1f else 0f)
             .clickable(onClick = onPlay),

@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -43,6 +44,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,9 +52,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hien.bitstream.LocalAppContainer
+import dev.hien.bitstream.R
+import dev.hien.bitstream.core.designsystem.Radii
+import dev.hien.bitstream.core.designsystem.Spacing
+import dev.hien.bitstream.core.designsystem.formatRateDepth
 import dev.hien.bitstream.core.model.RepeatMode
 import dev.hien.bitstream.core.model.Track
-import dev.hien.bitstream.ui.nowplaying.formatSourceRateDepth
 
 /**
  * Modal bottom sheet presenting the playback queue with drag-to-reorder,
@@ -110,7 +115,7 @@ fun QueuePane(
 ) {
     Column(
         modifier = modifier
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = Spacing.screen, vertical = Spacing.sm)
             .testTag("queue_pane"),
     ) {
         Row(
@@ -236,9 +241,9 @@ private fun QueueRow(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(Radii.sm))
                     .background(MaterialTheme.colorScheme.errorContainer)
-                    .padding(horizontal = 20.dp),
+                    .padding(horizontal = Spacing.xl),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Text(
@@ -257,7 +262,8 @@ private fun QueueRow(
 
         ListItem(
             modifier = Modifier
-                .clip(RoundedCornerShape(14.dp))
+                .heightIn(min = 64.dp)
+                .clip(RoundedCornerShape(Radii.tile))
                 .clickable(onClick = onPlay)
                 .testTag("queue_row_${track.id}"),
             colors = ListItemDefaults.colors(containerColor = containerColor),
@@ -284,10 +290,12 @@ private fun QueueRow(
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = if (isCurrent) "▶" else "≡",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (isCurrent) {
+                    Icon(
+                        painter = painterResource(
+                            if (isCurrent) R.drawable.ic_play else R.drawable.ic_drag_handle,
+                        ),
+                        contentDescription = if (isCurrent) "Now playing" else "Reorder",
+                        tint = if (isCurrent) {
                             MaterialTheme.colorScheme.primary
                         } else {
                             MaterialTheme.colorScheme.onSurfaceVariant
@@ -316,11 +324,11 @@ private fun QueueRow(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(Radii.xs),
                         color = Color.Transparent,
                     ) {
                         Text(
-                            text = formatSourceRateDepth(track.bitDepth, track.sampleRate),
+                            text = formatRateDepth(track.bitDepth, track.sampleRate),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                         )
@@ -329,10 +337,11 @@ private fun QueueRow(
                         onClick = onRemove,
                         modifier = Modifier.size(32.dp),
                     ) {
-                        Text(
-                            text = "×",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Icon(
+                            painter = painterResource(R.drawable.ic_close),
+                            contentDescription = "Remove from queue",
+                            modifier = Modifier.size(18.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }

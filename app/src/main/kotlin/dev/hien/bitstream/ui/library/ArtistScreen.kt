@@ -12,29 +12,29 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
+import dev.hien.bitstream.core.designsystem.BitstreamEmptyState
+import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
+import dev.hien.bitstream.core.designsystem.Spacing
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ArtistScreen(
     artistId: String,
@@ -62,79 +62,72 @@ fun ArtistScreen(
     val artwork = tracks.firstNotNullOfOrNull { it.artworkUri }
     val albumCount = tracks.map { albumKey(it) }.distinct().size
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(artistId, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = {
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_arrow_back),
-                                contentDescription = "Back",
-                            )
-                        }
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        if (tracks.isEmpty()) {
-            Text(
-                text = "No tracks for this artist.",
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            return@Scaffold
+    Column(modifier = Modifier.fillMaxSize()) {
+        BitstreamLargeHeader(title = artistId) {
+            if (onBack != null) {
+                IconButton(onClick = onBack) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_arrow_back),
+                        contentDescription = "Back",
+                    )
+                }
+            }
         }
 
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(bottom = 24.dp),
-        ) {
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    AlbumArtwork(uri = artwork, modifier = Modifier.size(112.dp))
-                    Spacer(Modifier.width(16.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(artistId, style = MaterialTheme.typography.headlineSmall)
-                        Text(
-                            text = "$albumCount albums · ${tracks.size} tracks",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilledTonalButton(
-                                onClick = { container.playTracks(tracks, startIndex = 0, shuffle = false) },
-                            ) {
-                                Text("Play")
-                            }
-                            OutlinedButton(
-                                onClick = { container.playTracks(tracks, startIndex = 0, shuffle = true) },
-                            ) {
-                                Text("Shuffle")
+        if (tracks.isEmpty()) {
+            BitstreamEmptyState(
+                title = "No tracks for this artist.",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f)
+                    .padding(Spacing.xxl),
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .weight(1f),
+                contentPadding = PaddingValues(bottom = Spacing.xxl),
+            ) {
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(Spacing.screen),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AlbumArtwork(uri = artwork, modifier = Modifier.size(112.dp))
+                        Spacer(Modifier.width(Spacing.lg))
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(artistId, style = MaterialTheme.typography.headlineMediumEmphasized)
+                            Text(
+                                text = "$albumCount albums · ${tracks.size} tracks",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                FilledTonalButton(
+                                    onClick = { container.playTracks(tracks, startIndex = 0, shuffle = false) },
+                                ) {
+                                    Text("Play")
+                                }
+                                OutlinedButton(
+                                    onClick = { container.playTracks(tracks, startIndex = 0, shuffle = true) },
+                                ) {
+                                    Text("Shuffle")
+                                }
                             }
                         }
                     }
+                    HorizontalDivider()
                 }
-                HorizontalDivider()
-            }
 
-            itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
-                TrackRow(
-                    track = track,
-                    onClick = { container.playTracks(tracks, startIndex = index) },
-                )
+                itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
+                    TrackRow(
+                        track = track,
+                        onClick = { container.playTracks(tracks, startIndex = index) },
+                    )
+                }
             }
         }
     }
