@@ -1,6 +1,7 @@
 package dev.hien.bitstream.ui.nowplaying
 
 import androidx.lifecycle.ViewModel
+import dev.hien.bitstream.core.designsystem.formatRateDepth
 import dev.hien.bitstream.core.model.AudioFormat
 import dev.hien.bitstream.core.model.BitPerfectPath
 import dev.hien.bitstream.core.model.Integrity
@@ -48,17 +49,6 @@ data class NowPlayingUiState(
         get() = status == PlaybackStatus.READY
 }
 
-/**
- * Formats bit depth and sample rate as `depth/kHz`, e.g. `24/192` or `16/44.1`.
- */
-fun formatSourceRateDepth(bitDepth: Int, sampleRate: Int): String {
-    if (bitDepth <= 0 || sampleRate <= 0) return ""
-    val wholeKhz = sampleRate / 1_000
-    val remainder = (sampleRate % 1_000) / 100
-    val rateText = if (remainder == 0) "$wholeKhz" else "$wholeKhz.$remainder"
-    return "$bitDepth/$rateText"
-}
-
 class NowPlayingViewModel(
     private val controller: PlaybackController,
 ) : ViewModel() {
@@ -73,6 +63,17 @@ class NowPlayingViewModel(
     )
     val state: StateFlow<NowPlayingUiState> = _state.asStateFlow()
 
+    /**
+     * Fast-changing transport values, split from [state] so the 100 ms position
+     * poll recomposes only the seek bar and time labels — not artwork, titles,
+     * or the transport row.
+     */
+    private val _position = MutableStateFlow(0L)
+    val positionMs: StateFlow<Long> = _position.asStateFlow()
+
+    private val _duration = MutableStateFlow(0L)
+    val durationMs: StateFlow<Long> = _duration.asStateFlow()
+
     init {
         vmScope.launch(start = CoroutineStart.UNDISPATCHED) {
             combine(
@@ -81,7 +82,14 @@ class NowPlayingViewModel(
                 controller.notices,
                 ::buildUiState,
             ).collect { uiState ->
-                _state.value = uiState
+                if (_position.value != uiState.positionMs) _position.value = uiState.positionMs
+                if (_duration.value != uiState.durationMs) _duration.value = uiState.durationMs
+
+                // Re-emit the full state only when something other than the position
+                // tick changed, so stable screens skip recomposition.
+                if (_state.value.copy(position = 0L) != uiState.copy(position = 0L)) {
+                    _state.value = uiState
+                }
             }
         }
     }
@@ -153,7 +161,7 @@ class NowPlayingViewModel(
             val track = playback.track
             val format = track?.format?.takeIf { it.sampleRate > 0 && it.bitDepth > 0 }
             val formatLabel = if (format != null) {
-                formatSourceRateDepth(format.bitDepth, format.sampleRate)
+                formatRateDepth(format.bitDepth, format.sampleRate)
             } else {
                 ""
             }
