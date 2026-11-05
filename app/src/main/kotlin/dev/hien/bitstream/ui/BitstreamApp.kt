@@ -156,7 +156,24 @@ fun BitstreamApp() {
                             popEnterTransition = { fadeThroughEnter(effects) },
                             popExitTransition = { fadeThroughExit(effects) },
                         ) {
-                            LibraryRoute(onTrack = container::playTrack)
+                            LibraryRoute(
+                                onTrack = container::playTrack,
+                                onSearch = {
+                                    navController.navigate(Destination.Search.route) {
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                                onFavorites = {
+                                    navController.navigate(FAVORITES_ROUTE) { launchSingleTop = true }
+                                },
+                                onSettings = {
+                                    navController.navigate(Destination.Settings.route) {
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                },
+                            )
                         }
                         composable(
                             route = Destination.Search.route,

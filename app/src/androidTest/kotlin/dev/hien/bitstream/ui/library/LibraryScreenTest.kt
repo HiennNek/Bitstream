@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dev.hien.bitstream.core.designsystem.BitstreamTheme
 import dev.hien.bitstream.core.model.Album
+import dev.hien.bitstream.core.model.Track
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -16,7 +17,7 @@ class LibraryScreenTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun albumTitleIsShownInTheLibrary() {
+    fun libraryShowsCardsTilesAndRecentTracks() {
         composeRule.setContent {
             BitstreamTheme {
                 LibraryScreen(
@@ -28,12 +29,24 @@ class LibraryScreenTest {
                                 albumArtist = "Coltrane",
                             ),
                         ),
+                        tracks = listOf(
+                            Track(
+                                id = 1,
+                                uri = "content://test/1.flac",
+                                title = "Moment's Notice",
+                                artist = "Coltrane",
+                                album = "Blue Train",
+                            ),
+                        ),
                     ),
                 )
             }
         }
 
         composeRule.onNodeWithText("Blue Train").assertIsDisplayed()
+        composeRule.onNodeWithText("Jump back in").assertIsDisplayed()
+        composeRule.onNodeWithText("Favorites").assertIsDisplayed()
+        composeRule.onNodeWithText("Recently added").assertIsDisplayed()
     }
 
     @Test

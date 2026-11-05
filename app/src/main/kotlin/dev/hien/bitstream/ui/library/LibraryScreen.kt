@@ -10,31 +10,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
@@ -42,7 +37,10 @@ import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,9 +55,13 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.BitstreamEmptyState
+import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
+import dev.hien.bitstream.core.designsystem.BitstreamSearchPill
 import dev.hien.bitstream.core.designsystem.BitstreamSectionHeader
+import dev.hien.bitstream.core.designsystem.BitstreamTile
 import dev.hien.bitstream.core.designsystem.Radii
 import dev.hien.bitstream.core.designsystem.Spacing
+import dev.hien.bitstream.core.designsystem.formatPlaybackTime
 import dev.hien.bitstream.core.designsystem.formatRateDepth
 import dev.hien.bitstream.core.model.Album
 import dev.hien.bitstream.core.model.Track
@@ -68,7 +70,12 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
-fun LibraryRoute(onTrack: (Long) -> Unit) {
+fun LibraryRoute(
+    onTrack: (Long) -> Unit,
+    onSearch: () -> Unit,
+    onFavorites: () -> Unit,
+    onSettings: () -> Unit,
+) {
     val container = LocalAppContainer.current
     val viewModel: LibraryViewModel = viewModel(
         factory = viewModelFactory {
@@ -118,6 +125,10 @@ fun LibraryRoute(onTrack: (Long) -> Unit) {
                 }
             },
             onPickFolder = { picker.launch(null) },
+            onSearch = onSearch,
+            onFavorites = onFavorites,
+            onShuffleAll = { container.playTracks(state.tracks, shuffle = true) },
+            onSettings = onSettings,
         )
     }
 
@@ -163,7 +174,6 @@ fun LibraryRoute(onTrack: (Long) -> Unit) {
 private const val ALBUM_PREFIX = "album:"
 private const val ARTIST_PREFIX = "artist:"
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
     state: LibraryUiState,
@@ -171,15 +181,25 @@ fun LibraryScreen(
     onTrack: (Long) -> Unit = {},
     onArtist: (String) -> Unit = {},
     onPickFolder: () -> Unit = {},
+    onSearch: () -> Unit = {},
+    onFavorites: () -> Unit = {},
+    onShuffleAll: () -> Unit = {},
+    onSettings: () -> Unit = {},
 ) {
-    Scaffold(
-        topBar = { TopAppBar(title = { Text("Library") }) },
-    ) { padding ->
+    Column(modifier = Modifier.fillMaxSize()) {
+        BitstreamLargeHeader(title = "Library") {
+            IconButton(onClick = onSettings) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_more_vert),
+                    contentDescription = "More options",
+                )
+            }
+        }
         if (state.empty && !state.isScanning) {
             EmptyLibrary(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .weight(1f),
                 onPickFolder = onPickFolder,
             )
         } else {
@@ -188,37 +208,56 @@ fun LibraryScreen(
                 onAlbum = onAlbum,
                 onTrack = onTrack,
                 onArtist = onArtist,
+                onSearch = onSearch,
+                onFavorites = onFavorites,
+                onShuffleAll = onShuffleAll,
+                onSettings = onSettings,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .weight(1f),
             )
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LibraryContent(
     state: LibraryUiState,
     onAlbum: (String) -> Unit,
     onTrack: (Long) -> Unit,
     onArtist: (String) -> Unit,
+    onSearch: () -> Unit,
+    onFavorites: () -> Unit,
+    onShuffleAll: () -> Unit,
+    onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val gridState = rememberLazyGridState()
-    val artistsRowState = rememberLazyListState()
-    LazyVerticalGrid(
-        state = gridState,
-        columns = GridCells.Adaptive(minSize = 160.dp),
+    var showArtists by remember { mutableStateOf(false) }
+
+    LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(Spacing.screen),
-        horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-        verticalArrangement = Arrangement.spacedBy(Spacing.lg),
+        contentPadding = PaddingValues(
+            start = Spacing.xxl,
+            end = Spacing.xxl,
+            top = Spacing.md,
+            bottom = Spacing.xxxl,
+        ),
+        verticalArrangement = Arrangement.spacedBy(Spacing.md),
     ) {
+        item {
+            BitstreamSearchPill(
+                text = "Search your music",
+                painter = painterResource(R.drawable.ic_search),
+                onClick = onSearch,
+            )
+        }
+
         if (state.isScanning) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
+            item {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     Text("Scanning library…", style = MaterialTheme.typography.bodyMedium)
@@ -226,42 +265,108 @@ private fun LibraryContent(
             }
         }
 
-        if (state.artists.isNotEmpty()) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                BitstreamSectionHeader("Artists", modifier = Modifier.padding(top = Spacing.sm))
+        if (state.albums.isNotEmpty()) {
+            item {
+                BitstreamSectionHeader(
+                    title = "Jump back in",
+                    modifier = Modifier.padding(top = Spacing.md),
+                )
             }
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                LazyRow(
-                    state = artistsRowState,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    items(state.artists, key = { it.id }) { artist ->
-                        AssistChip(
-                            onClick = { onArtist(artist.id) },
-                            label = { Text(artist.name, maxLines = 1) },
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    items(state.albums, key = { it.id }) { album ->
+                        AlbumCard(
+                            album = album,
+                            onClick = { onAlbum(album.id) },
                         )
                     }
                 }
             }
         }
 
-        item(span = { GridItemSpan(maxLineSpan) }) {
-            BitstreamSectionHeader("Albums", modifier = Modifier.padding(top = Spacing.sm))
-        }
-        items(state.albums, key = { "album-${it.id}" }) { album ->
-            AlbumCard(album = album, onClick = { onAlbum(album.id) })
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    BitstreamTile(
+                        label = "Shuffle all",
+                        painter = painterResource(R.drawable.ic_shuffle),
+                        onClick = onShuffleAll,
+                        modifier = Modifier.weight(1f),
+                    )
+                    BitstreamTile(
+                        label = "Favorites",
+                        painter = painterResource(R.drawable.ic_favorite),
+                        onClick = onFavorites,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
+                    BitstreamTile(
+                        label = "Artists",
+                        painter = painterResource(R.drawable.ic_person),
+                        onClick = { showArtists = true },
+                        modifier = Modifier.weight(1f),
+                    )
+                    BitstreamTile(
+                        label = "Folders",
+                        painter = painterResource(R.drawable.ic_folder),
+                        onClick = onSettings,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
         }
 
         if (state.tracks.isNotEmpty()) {
-            item(span = { GridItemSpan(maxLineSpan) }) {
-                BitstreamSectionHeader("Tracks", modifier = Modifier.padding(top = Spacing.sm))
+            item {
+                BitstreamSectionHeader(
+                    title = "Recently added",
+                    modifier = Modifier.padding(top = Spacing.md),
+                )
             }
             items(
                 items = state.tracks.take(MAX_LIBRARY_TRACKS),
                 key = { "track-${it.id}" },
-                span = { GridItemSpan(maxLineSpan) },
             ) { track ->
-                TrackRow(track = track, onClick = { onTrack(track.id) })
+                TrackRow(
+                    track = track,
+                    onClick = { onTrack(track.id) },
+                    leading = {
+                        CoverArt(
+                            artworkUri = track.artworkUri,
+                            seed = track.id,
+                            modifier = Modifier.size(46.dp),
+                        )
+                    },
+                    trailing = {
+                        val duration = formatPlaybackTime(track.durationMs)
+                        if (duration.isNotBlank()) {
+                            Text(duration, style = MaterialTheme.typography.labelMedium)
+                        }
+                    },
+                )
+            }
+        }
+    }
+
+    if (showArtists) {
+        ModalBottomSheet(onDismissRequest = { showArtists = false }) {
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
+                items(state.artists, key = { it.id }) { artist ->
+                    ListItem(
+                        headlineContent = {
+                            Text(
+                                text = artist.name,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        },
+                        modifier = Modifier.clickable {
+                            showArtists = false
+                            onArtist(artist.id)
+                        },
+                    )
+                }
             }
         }
     }
@@ -297,28 +402,52 @@ private fun EmptyLibrary(
 
 @Composable
 private fun AlbumCard(album: Album, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Column {
-            AlbumArtwork(
-                uri = album.artworkUri,
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(width = 236.dp, height = 272.dp),
+        shape = RoundedCornerShape(Radii.hero),
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            CoverArt(
+                artworkUri = album.artworkUri,
+                seed = album.id.hashCode().toLong(),
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f),
+                    .align(Alignment.BottomEnd)
+                    .size(250.dp),
             )
-            Column(Modifier.padding(Spacing.md)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(Spacing.lg),
+            ) {
                 Text(
                     text = album.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     text = album.albumArtist,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Spacer(modifier = Modifier.weight(1f))
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(52.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_play),
+                            contentDescription = null,
+                        )
+                    }
+                }
             }
         }
     }
@@ -334,13 +463,24 @@ fun AlbumArtwork(uri: String?, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun TrackRow(track: Track, onClick: () -> Unit) {
+fun TrackRow(
+    track: Track,
+    onClick: () -> Unit,
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     ListItem(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(Radii.tile))
             .clickable(onClick = onClick),
+        leadingContent = leading,
         content = {
-            Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                text = track.title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         },
         supportingContent = {
             val subtitle = listOf(track.artist, track.album)
@@ -351,9 +491,13 @@ fun TrackRow(track: Track, onClick: () -> Unit) {
             }
         },
         trailingContent = {
-            val format = formatRateDepth(track.bitDepth, track.sampleRate)
-            if (format.isNotBlank()) {
-                Text(format, style = MaterialTheme.typography.labelMedium)
+            if (trailing != null) {
+                trailing()
+            } else {
+                val format = formatRateDepth(track.bitDepth, track.sampleRate)
+                if (format.isNotBlank()) {
+                    Text(format, style = MaterialTheme.typography.labelMedium)
+                }
             }
         },
     )
