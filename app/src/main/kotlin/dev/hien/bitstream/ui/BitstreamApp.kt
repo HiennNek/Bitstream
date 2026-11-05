@@ -37,6 +37,8 @@ import dev.hien.bitstream.core.designsystem.DetailPopEnter
 import dev.hien.bitstream.core.designsystem.DetailPopExit
 import dev.hien.bitstream.core.designsystem.FadeThroughEnter
 import dev.hien.bitstream.core.designsystem.FadeThroughExit
+import dev.hien.bitstream.core.designsystem.BitstreamTheme
+import dev.hien.bitstream.core.designsystem.trackHue
 import dev.hien.bitstream.ui.adaptive.AdaptiveNavItem
 import dev.hien.bitstream.ui.adaptive.AdaptiveNavigationScaffold
 import dev.hien.bitstream.ui.library.AlbumScreen
@@ -50,6 +52,8 @@ import dev.hien.bitstream.ui.playlists.PlaylistsRoute
 import dev.hien.bitstream.ui.search.SearchRoute
 import dev.hien.bitstream.ui.settings.DiagnosticsScreen
 import dev.hien.bitstream.ui.settings.SettingsRoute
+import dev.hien.bitstream.ui.settings.ThemePreference
+import androidx.compose.foundation.isSystemInDarkTheme
 
 private const val USB_DEBUG_ROUTE = "usb-debug"
 private const val NOW_PLAYING_ROUTE = "now-playing"
@@ -78,6 +82,17 @@ fun BitstreamApp() {
         },
     )
     val nowPlayingState by nowPlayingViewModel.state.collectAsState()
+
+    val themePref by container.settingsStore.themeFlow.collectAsState()
+    val albumColors by container.settingsStore.dynamicColorFlow.collectAsState()
+    val darkTheme = when (themePref) {
+        ThemePreference.SYSTEM -> isSystemInDarkTheme()
+        ThemePreference.LIGHT -> false
+        ThemePreference.DARK -> true
+    }
+    val albumHue = nowPlayingState.track?.let {
+        trackHue(it.albumArtist, it.album, it.artist, it.title)
+    }
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -116,8 +131,13 @@ fun BitstreamApp() {
         )
     }
 
-    AdaptiveNavigationScaffold(items = navItems) {
-        SharedTransitionLayout {
+    BitstreamTheme(
+        darkTheme = darkTheme,
+        albumHue = albumHue,
+        albumColors = albumColors,
+    ) {
+        AdaptiveNavigationScaffold(items = navItems) {
+            SharedTransitionLayout {
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
                     NavHost(
@@ -264,4 +284,5 @@ fun BitstreamApp() {
             }
         }
     }
+}
 }

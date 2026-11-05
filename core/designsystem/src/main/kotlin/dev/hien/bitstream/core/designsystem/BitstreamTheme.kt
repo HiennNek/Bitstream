@@ -1,7 +1,7 @@
 package dev.hien.bitstream.core.designsystem
 
-import android.os.Build
-import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -9,12 +9,9 @@ import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 
 private val DeepTealLight = lightColorScheme(
     primary = Color(0xFF006A6A),
@@ -55,24 +52,24 @@ private val DeepTealDark = darkColorScheme(
 )
 
 /**
- * Material 3 Expressive theme. Dynamic color is used on Android 12+; API 29–30
- * falls back to a static deep-teal scheme.
+ * Material 3 Expressive theme. When [albumColors] is on and a track is playing,
+ * the whole scheme is generated from that album's hue; otherwise it falls back to
+ * the static deep-teal scheme.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BitstreamTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    albumHue: Int? = null,
+    albumColors: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme: ColorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DeepTealDark
-        else -> DeepTealLight
+    val colorScheme: ColorScheme = if (albumColors && albumHue != null) {
+        rememberAnimatedColorScheme(trackPalette(albumHue, darkTheme).toColorScheme(darkTheme))
+    } else if (darkTheme) {
+        DeepTealDark
+    } else {
+        DeepTealLight
     }
 
     MaterialExpressiveTheme(
@@ -82,12 +79,81 @@ fun BitstreamTheme(
     )
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+private fun TrackPalette.toColorScheme(dark: Boolean): ColorScheme {
+    val base = if (dark) darkColorScheme() else lightColorScheme()
+    return base.copy(
+        primary = Color(primary),
+        onPrimary = Color(onPrimary),
+        primaryContainer = Color(primaryContainer),
+        onPrimaryContainer = Color(onPrimaryContainer),
+        secondary = Color(secondary),
+        onSecondary = Color(onSecondary),
+        secondaryContainer = Color(secondaryContainer),
+        onSecondaryContainer = Color(onSecondaryContainer),
+        tertiary = Color(tertiary),
+        onTertiary = Color(onTertiary),
+        tertiaryContainer = Color(tertiaryContainer),
+        onTertiaryContainer = Color(onTertiaryContainer),
+        background = Color(surface),
+        onBackground = Color(onSurface),
+        surface = Color(surface),
+        onSurface = Color(onSurface),
+        surfaceVariant = Color(surfaceContainerHigh),
+        onSurfaceVariant = Color(onSurfaceVariant),
+        surfaceContainer = Color(surfaceContainer),
+        surfaceContainerHigh = Color(surfaceContainerHigh),
+        surfaceContainerHighest = Color(surfaceContainerHighest),
+        outlineVariant = Color(outlineVariant),
+    )
+}
+
+/** Cross-fades the roles that paint large areas when the album hue changes. */
 @Composable
-fun <T> expressiveSpatialSpec(): FiniteAnimationSpec<T> =
-    MaterialTheme.motionScheme.defaultSpatialSpec()
+private fun rememberAnimatedColorScheme(target: ColorScheme): ColorScheme {
+    val spec = tween<Color>(durationMillis = 500)
+    return target.copy(
+        surface = animateColorAsState(target.surface, spec, label = "surface").value,
+        surfaceContainer = animateColorAsState(
+            target.surfaceContainer,
+            spec,
+            label = "surfaceContainer",
+        ).value,
+        surfaceContainerHigh = animateColorAsState(
+            target.surfaceContainerHigh,
+            spec,
+            label = "surfaceContainerHigh",
+        ).value,
+        onSurface = animateColorAsState(target.onSurface, spec, label = "onSurface").value,
+        onSurfaceVariant = animateColorAsState(
+            target.onSurfaceVariant,
+            spec,
+            label = "onSurfaceVariant",
+        ).value,
+        primary = animateColorAsState(target.primary, spec, label = "primary").value,
+        primaryContainer = animateColorAsState(
+            target.primaryContainer,
+            spec,
+            label = "primaryContainer",
+        ).value,
+        secondaryContainer = animateColorAsState(
+            target.secondaryContainer,
+            spec,
+            label = "secondaryContainer",
+        ).value,
+        tertiaryContainer = animateColorAsState(
+            target.tertiaryContainer,
+            spec,
+            label = "tertiaryContainer",
+        ).value,
+    )
+}
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun <T> expressiveEffectsSpec(): FiniteAnimationSpec<T> =
-    MaterialTheme.motionScheme.defaultEffectsSpec()
+fun <T> expressiveSpatialSpec() =
+    MaterialTheme.motionScheme.defaultSpatialSpec<T>()
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun <T> expressiveEffectsSpec() =
+    MaterialTheme.motionScheme.defaultEffectsSpec<T>()

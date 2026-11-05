@@ -44,6 +44,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
+import dev.hien.bitstream.core.designsystem.Spacing
 import dev.hien.bitstream.core.playback.usb.DacState
 
 @Composable
@@ -118,8 +119,8 @@ fun SettingsScreen(
                     .widthIn(max = 720.dp)
                     .fillMaxSize()
                     .testTag("settings_column"),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(Spacing.screen),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             ) {
                 item {
                     SectionCard(title = "Library") {
@@ -265,11 +266,11 @@ fun SettingsScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "Dynamic color (Material You)",
+                                    text = "Album art colors",
                                     style = MaterialTheme.typography.bodyLarge,
                                 )
                                 Text(
-                                    text = "Uses system wallpaper colors on Android 12+; falls back to deep teal when disabled.",
+                                    text = "Tints the app from the current album; off uses deep teal.",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -329,8 +330,8 @@ private fun SectionCard(
 ) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.md),
         ) {
             Text(
                 text = title,
