@@ -9,25 +9,17 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
-import androidx.compose.material3.NavigationRailItemDefaults
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ShortNavigationBar
+import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import dev.hien.bitstream.core.designsystem.NavChrome
@@ -59,6 +51,7 @@ fun AdaptiveScaffold(
  * `navigation_bar` and `navigation_rail` semantics test tags. Hidden entirely
  * when [showNavigation] is false.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AdaptiveNavigationScaffold(
     items: List<AdaptiveNavItem>,
@@ -68,8 +61,8 @@ fun AdaptiveNavigationScaffold(
 ) {
     AdaptiveScaffold { _ ->
         BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-            val chrome = navChromeFor(maxWidth.value.toInt())
             val short = maxHeight < 600.dp
+            val chrome = if (short) NavChrome.RAIL else navChromeFor(maxWidth.value.toInt())
             if (!showNavigation) {
                 Box(modifier = Modifier.fillMaxSize()) { content() }
                 return@BoxWithConstraints
@@ -84,32 +77,16 @@ fun AdaptiveNavigationScaffold(
                         ) {
                             content()
                         }
-                        NavigationBar(
+                        ShortNavigationBar(
                             containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             modifier = Modifier.testTag("navigation_bar"),
                         ) {
                             items.forEach { item ->
-                                NavigationBarItem(
+                                ShortNavigationBarItem(
                                     selected = item.selected,
                                     onClick = item.onClick,
-                                    icon = {
-                                        NavPill(
-                                            selected = item.selected,
-                                            width = 60.dp,
-                                            height = 30.dp,
-                                            radius = 15.dp,
-                                        ) {
-                                            item.icon()
-                                        }
-                                    },
+                                    icon = item.icon,
                                     label = item.labelContent,
-                                    colors = NavigationBarItemDefaults.colors(
-                                        indicatorColor = Color.Transparent,
-                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    ),
                                 )
                             }
                         }
@@ -133,24 +110,8 @@ fun AdaptiveNavigationScaffold(
                                 NavigationRailItem(
                                     selected = item.selected,
                                     onClick = item.onClick,
-                                    icon = {
-                                        NavPill(
-                                            selected = item.selected,
-                                            width = if (short) 56.dp else 56.dp,
-                                            height = if (short) 30.dp else 32.dp,
-                                            radius = if (short) 15.dp else 16.dp,
-                                        ) {
-                                            item.icon()
-                                        }
-                                    },
+                                    icon = item.icon,
                                     label = item.labelContent,
-                                    colors = NavigationRailItemDefaults.colors(
-                                        indicatorColor = Color.Transparent,
-                                        selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    ),
                                     modifier = Modifier.height(if (short) 64.dp else 68.dp),
                                 )
                             }
@@ -164,32 +125,6 @@ fun AdaptiveNavigationScaffold(
                         }
                     }
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun NavPill(
-    selected: Boolean,
-    width: Dp,
-    height: Dp,
-    radius: Dp,
-    content: @Composable () -> Unit,
-) {
-    Surface(
-        shape = RoundedCornerShape(radius),
-        color = if (selected) {
-            MaterialTheme.colorScheme.secondaryContainer
-        } else {
-            Color.Transparent
-        },
-        contentColor = LocalContentColor.current,
-        modifier = Modifier.size(width = width, height = height),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Box(modifier = Modifier.size(24.dp), contentAlignment = Alignment.Center) {
-                content()
             }
         }
     }

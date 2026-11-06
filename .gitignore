@@ -8,3 +8,7 @@ local.properties
 .idea/
 *.iml
 .superpowers/
+.kotlin/
+.claude/
+.agents/
+skills-lock.json

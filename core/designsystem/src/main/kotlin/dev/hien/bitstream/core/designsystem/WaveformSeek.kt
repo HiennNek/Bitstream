@@ -1,10 +1,9 @@
 package dev.hien.bitstream.core.designsystem
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -24,12 +23,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSliderState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.sin
@@ -52,6 +54,7 @@ fun WaveformSeek(
     playing: Boolean,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    contentDescription: String = "Playback position",
 ) {
     val range = durationMs.coerceAtLeast(1L).toFloat()
     val sliderState = rememberSliderState(
@@ -66,18 +69,22 @@ fun WaveformSeek(
 
     val primary = MaterialTheme.colorScheme.primary
     val inactive = MaterialTheme.colorScheme.secondaryContainer
-    val drift = if (playing) {
-        rememberInfiniteTransition(label = "waveDrift").animateFloat(
-            initialValue = 0f,
-            targetValue = (2 * PI).toFloat(),
-            animationSpec = infiniteRepeatable(
-                animation = tween(1_400, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart,
-            ),
-            label = "wavePhase",
-        ).value
-    } else {
-        0f
+    val motionEnabled = rememberMotionEnabled()
+    val waveMorph = animateFloatAsState(
+        targetValue = if (playing) 1f else 0f,
+        animationSpec = if (motionEnabled) tween(320) else snap(),
+        label = "waveMorph",
+    ).value
+    // Freeze the phase on pause so flattening to a line does not jump sideways.
+    val drift = remember { Animatable(0f) }
+    LaunchedEffect(playing, motionEnabled) {
+        if (!playing || !motionEnabled) return@LaunchedEffect
+        while (true) {
+            drift.animateTo(
+                targetValue = drift.value + (2 * PI).toFloat(),
+                animationSpec = tween(1_400, easing = LinearEasing),
+            )
+        }
     }
 
     Column(modifier = modifier) {
@@ -85,7 +92,9 @@ fun WaveformSeek(
             state = sliderState,
             onValueChange = { sliderState.value = it },
             onValueChangeFinished = { onSeek(sliderState.value.toLong()) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { this.contentDescription = contentDescription },
             thumb = {
                 Box(
                     modifier = Modifier
@@ -104,38 +113,36 @@ fun WaveformSeek(
                     val lineWidth = 5.dp.toPx()
                     val fraction = seekProgress(state.value.toLong(), durationMs)
                     val activeWidth = size.width * fraction
+                    val gap = 10.dp.toPx()
 
-                    drawLine(
-                        color = inactive,
-                        start = Offset(0f, centerY),
-                        end = Offset(size.width, centerY),
-                        strokeWidth = lineWidth,
-                        cap = StrokeCap.Round,
-                    )
-                    if (activeWidth > 0f) {
+                    val remainderStart = (activeWidth + gap).coerceAtMost(size.width)
+                    if (remainderStart < size.width) {
                         drawLine(
-                            color = primary,
-                            start = Offset(0f, centerY),
-                            end = Offset(activeWidth, centerY),
+                            color = inactive,
+                            start = Offset(remainderStart, centerY),
+                            end = Offset(size.width, centerY),
                             strokeWidth = lineWidth,
                             cap = StrokeCap.Round,
                         )
                     }
 
-                    if (playing && activeWidth > 0f) {
-                        val amplitude = 4.5.dp.toPx()
-                        val period = 15.dp.toPx()
+                    if (activeWidth > 0f) {
+                        val amplitude = 4.5.dp.toPx() * waveMorph
+                        val period = 30.dp.toPx()
                         val path = Path()
                         var x = 0f
                         while (x <= activeWidth) {
-                            val y = centerY + sin((x / period) * 2f * PI.toFloat() + drift) * amplitude
+                            // Phase is measured from the thumb end, so the wave
+                            // stays attached to the bar while it is dragged.
+                            val phase = ((x - activeWidth) / period) * 2f * PI.toFloat() + drift.value
+                            val y = centerY + sin(phase) * amplitude
                             if (x == 0f) path.moveTo(x, y) else path.lineTo(x, y)
                             x += 1f
                         }
                         drawPath(
                             path = path,
                             color = primary,
-                            style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round),
+                            style = Stroke(width = lineWidth, cap = StrokeCap.Round),
                         )
                     }
                 }

@@ -1,6 +1,7 @@
 package dev.hien.bitstream.ui.library
 
 import android.content.Intent
+import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -21,15 +22,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -39,6 +41,8 @@ import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
+import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,12 +56,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.graphics.shapes.RoundedPolygon
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -67,8 +75,8 @@ import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.BitstreamEmptyState
 import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
 import dev.hien.bitstream.core.designsystem.BitstreamSearchPill
+import dev.hien.bitstream.core.designsystem.BitstreamTheme
 import dev.hien.bitstream.core.designsystem.BitstreamTile
-import dev.hien.bitstream.core.designsystem.GeneratedCoverArt
 import dev.hien.bitstream.core.designsystem.formatPlaybackTime
 import dev.hien.bitstream.core.designsystem.formatRateDepth
 import dev.hien.bitstream.core.designsystem.trackHue
@@ -126,6 +134,17 @@ fun LibraryRoute(
             onAlbum = { albumId ->
                 scope.launch {
                     navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, "album:$albumId")
+                }
+            },
+            onPlayAlbum = { albumId ->
+                val albumTracks = state.tracks.filter { albumKey(it) == albumId }
+                val first = albumTracks.firstOrNull()
+                if (first != null) {
+                    if (container.playbackEngine.state.value.track?.id == first.id) {
+                        container.playbackEngine.play()
+                    } else {
+                        container.playTracks(albumTracks)
+                    }
                 }
             },
             onTrack = onTrack,
@@ -187,6 +206,7 @@ private const val ARTIST_PREFIX = "artist:"
 fun LibraryScreen(
     state: LibraryUiState,
     onAlbum: (String) -> Unit = {},
+    onPlayAlbum: (String) -> Unit = {},
     onTrack: (Long) -> Unit = {},
     onArtist: (String) -> Unit = {},
     onPickFolder: () -> Unit = {},
@@ -207,10 +227,10 @@ fun LibraryScreen(
         val short = maxHeight < 600.dp
         val onArtists = { showArtists = true }
         when {
-            compact -> CompactLibrary(state, onAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
-            short -> LandscapeLibrary(state, onAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
-            maxWidth >= 840.dp -> ExpandedLibrary(state, onAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
-            else -> PortraitLibrary(state, onAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
+            compact -> CompactLibrary(state, onAlbum, onPlayAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
+            short -> LandscapeLibrary(state, onAlbum, onPlayAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
+            maxWidth >= 840.dp -> ExpandedLibrary(state, onAlbum, onPlayAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
+            else -> PortraitLibrary(state, onAlbum, onPlayAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
         }
     }
 
@@ -219,11 +239,12 @@ fun LibraryScreen(
 
 private enum class LibraryAction { Shuffle, Favorites, Artists, Folders }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 private val shortcuts = listOf(
-    Triple("Shuffle all", LibraryAction.Shuffle, 8),
-    Triple("Favorites", LibraryAction.Favorites, 10),
-    Triple("Artists", LibraryAction.Artists, 7),
-    Triple("Folders", LibraryAction.Folders, 12),
+    Triple("Shuffle all", LibraryAction.Shuffle, MaterialShapes.Cookie6Sided),
+    Triple("Favorites", LibraryAction.Favorites, MaterialShapes.Cookie7Sided),
+    Triple("Artists", LibraryAction.Artists, MaterialShapes.Cookie9Sided),
+    Triple("Folders", LibraryAction.Folders, MaterialShapes.Cookie12Sided),
 )
 
 private val phoneSection = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight(650))
@@ -262,6 +283,7 @@ private fun Album.artSeed(): Long = id.hashCode().toLong()
 private fun CompactLibrary(
     state: LibraryUiState,
     onAlbum: (String) -> Unit,
+    onPlayAlbum: (String) -> Unit,
     onTrack: (Long) -> Unit,
     onSearch: () -> Unit,
     onFavorites: () -> Unit,
@@ -288,27 +310,24 @@ private fun CompactLibrary(
             if (state.albums.isNotEmpty()) {
                 item { SectionTitle("Jump back in", MaterialTheme.typography.titleLarge, 24.dp, 12.dp) }
                 item {
-                    LazyRow(
+                    AlbumCarousel(
+                        albums = state.albums,
+                        preferredItemWidth = 236.dp,
+                        itemSpacing = 12.dp,
                         contentPadding = PaddingValues(horizontal = 24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        items(state.albums, key = { it.id }) { album ->
-                            AlbumCard(
-                                album = album,
-                                width = 236.dp,
-                                height = 272.dp,
-                                radius = 32.dp,
-                                blobSize = 250.dp,
-                                blobOffset = 60.dp,
-                                contentPadding = 20.dp,
-                                titleStyle = portraitCardTitle,
-                                artistStyle = MaterialTheme.typography.titleSmall,
-                                playSize = 52.dp,
-                                playIcon = 28.dp,
-                                onClick = { onAlbum(album.id) },
-                            )
-                        }
-                    }
+                        width = 236.dp,
+                        height = 272.dp,
+                        radius = 32.dp,
+                        blobSize = 250.dp,
+                        blobOffset = 60.dp,
+                        cardPadding = 20.dp,
+                        titleStyle = portraitCardTitle,
+                        artistStyle = MaterialTheme.typography.titleSmall,
+                        playSize = 52.dp,
+                        playIcon = 28.dp,
+                        onAlbum = onAlbum,
+                        onPlayAlbum = onPlayAlbum,
+                    )
                 }
             }
             item {
@@ -356,6 +375,7 @@ private fun CompactLibrary(
 private fun LandscapeLibrary(
     state: LibraryUiState,
     onAlbum: (String) -> Unit,
+    onPlayAlbum: (String) -> Unit,
     onTrack: (Long) -> Unit,
     onSearch: () -> Unit,
     onFavorites: () -> Unit,
@@ -385,25 +405,24 @@ private fun LandscapeLibrary(
         ) {
             item { SectionTitle("Jump back in", phoneSection, 8.dp, 8.dp) }
             item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(state.albums, key = { it.id }) { album ->
-                        AlbumCard(
-                            album = album,
-                            width = 216.dp,
-                            height = 150.dp,
-                            radius = 28.dp,
-                            blobSize = 156.dp,
-                            blobOffset = 44.dp,
-                            contentPadding = 16.dp,
-                            titleStyle = phoneLandscapeCardTitle,
-                            titleMaxWidth = 140.dp,
-                            artistStyle = MaterialTheme.typography.bodyMedium,
-                            playSize = 44.dp,
-                            playIcon = 24.dp,
-                            onClick = { onAlbum(album.id) },
-                        )
-                    }
-                }
+                AlbumCarousel(
+                    albums = state.albums,
+                    preferredItemWidth = 216.dp,
+                    itemSpacing = 12.dp,
+                    width = 216.dp,
+                    height = 150.dp,
+                    radius = 28.dp,
+                    blobSize = 156.dp,
+                    blobOffset = 44.dp,
+                    cardPadding = 16.dp,
+                    titleStyle = phoneLandscapeCardTitle,
+                    titleMaxWidth = 140.dp,
+                    artistStyle = MaterialTheme.typography.bodyMedium,
+                    playSize = 44.dp,
+                    playIcon = 24.dp,
+                    onAlbum = onAlbum,
+                    onPlayAlbum = onPlayAlbum,
+                )
             }
             item {
                 ShortcutGrid(
@@ -451,6 +470,7 @@ private fun LandscapeLibrary(
 private fun PortraitLibrary(
     state: LibraryUiState,
     onAlbum: (String) -> Unit,
+    onPlayAlbum: (String) -> Unit,
     onTrack: (Long) -> Unit,
     onSearch: () -> Unit,
     onFavorites: () -> Unit,
@@ -481,25 +501,24 @@ private fun PortraitLibrary(
         ) {
             item { SectionTitle("Jump back in", tabletSection, 0.dp, 12.dp) }
             item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    items(state.albums, key = { it.id }) { album ->
-                        AlbumCard(
-                            album = album,
-                            width = 300.dp,
-                            height = 330.dp,
-                            radius = 40.dp,
-                            blobSize = 320.dp,
-                            blobOffset = 70.dp,
-                            contentPadding = 28.dp,
-                            titleStyle = portraitTableCellTitle,
-                            titleMaxWidth = 220.dp,
-                            artistStyle = MaterialTheme.typography.titleMedium,
-                            playSize = 60.dp,
-                            playIcon = 32.dp,
-                            onClick = { onAlbum(album.id) },
-                        )
-                    }
-                }
+                AlbumCarousel(
+                    albums = state.albums,
+                    preferredItemWidth = 300.dp,
+                    itemSpacing = 16.dp,
+                    width = 300.dp,
+                    height = 330.dp,
+                    radius = 40.dp,
+                    blobSize = 320.dp,
+                    blobOffset = 70.dp,
+                    cardPadding = 28.dp,
+                    titleStyle = portraitTableCellTitle,
+                    titleMaxWidth = 220.dp,
+                    artistStyle = MaterialTheme.typography.titleMedium,
+                    playSize = 60.dp,
+                    playIcon = 32.dp,
+                    onAlbum = onAlbum,
+                    onPlayAlbum = onPlayAlbum,
+                )
             }
             item { SectionTitle("Browse", tabletSection, 32.dp, 12.dp) }
             item {
@@ -549,6 +568,7 @@ private fun PortraitLibrary(
 private fun ExpandedLibrary(
     state: LibraryUiState,
     onAlbum: (String) -> Unit,
+    onPlayAlbum: (String) -> Unit,
     onTrack: (Long) -> Unit,
     onSearch: () -> Unit,
     onFavorites: () -> Unit,
@@ -580,25 +600,24 @@ private fun ExpandedLibrary(
         ) {
             item { SectionTitle("Jump back in", tabletSection, 0.dp, 12.dp) }
             item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    items(state.albums, key = { it.id }) { album ->
-                        AlbumCard(
-                            album = album,
-                            width = 300.dp,
-                            height = 236.dp,
-                            radius = 36.dp,
-                            blobSize = 250.dp,
-                            blobOffset = 64.dp,
-                            contentPadding = 24.dp,
-                            titleStyle = tabletCardTitle,
-                            titleMaxWidth = 200.dp,
-                            artistStyle = MaterialTheme.typography.bodyLarge,
-                            playSize = 56.dp,
-                            playIcon = 30.dp,
-                            onClick = { onAlbum(album.id) },
-                        )
-                    }
-                }
+                AlbumCarousel(
+                    albums = state.albums,
+                    preferredItemWidth = 300.dp,
+                    itemSpacing = 16.dp,
+                    width = 300.dp,
+                    height = 236.dp,
+                    radius = 36.dp,
+                    blobSize = 250.dp,
+                    blobOffset = 64.dp,
+                    cardPadding = 24.dp,
+                    titleStyle = tabletCardTitle,
+                    titleMaxWidth = 200.dp,
+                    artistStyle = MaterialTheme.typography.bodyLarge,
+                    playSize = 56.dp,
+                    playIcon = 30.dp,
+                    onAlbum = onAlbum,
+                    onPlayAlbum = onPlayAlbum,
+                )
             }
             item {
                 Row(
@@ -793,13 +812,13 @@ private fun ShortcutGrid(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                row.forEach { (label, action, sides) ->
+                row.forEach { (label, action, shape) ->
                     BitstreamTile(
                         label = label,
                         painter = painterResource(painters.getValue(action)),
                         onClick = actions.getValue(action),
                         modifier = Modifier.weight(1f),
-                        sides = sides,
+                        shape = shape,
                         height = height,
                         radius = radius,
                         blobSize = blobSize,
@@ -812,6 +831,54 @@ private fun ShortcutGrid(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AlbumCarousel(
+    albums: List<Album>,
+    preferredItemWidth: Dp,
+    itemSpacing: Dp,
+    width: Dp,
+    height: Dp,
+    radius: Dp,
+    blobSize: Dp,
+    blobOffset: Dp,
+    cardPadding: Dp,
+    titleStyle: TextStyle,
+    artistStyle: TextStyle,
+    playSize: Dp,
+    playIcon: Dp,
+    onAlbum: (String) -> Unit,
+    onPlayAlbum: (String) -> Unit,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    titleMaxWidth: Dp? = null,
+) {
+    val carouselState = rememberCarouselState { albums.size }
+    HorizontalMultiBrowseCarousel(
+        state = carouselState,
+        preferredItemWidth = preferredItemWidth,
+        modifier = Modifier.fillMaxWidth(),
+        itemSpacing = itemSpacing,
+        contentPadding = contentPadding,
+    ) { index ->
+        val album = albums[index]
+        AlbumCard(
+            album = album,
+            width = width,
+            height = height,
+            radius = radius,
+            blobSize = blobSize,
+            blobOffset = blobOffset,
+            contentPadding = cardPadding,
+            titleStyle = titleStyle,
+            titleMaxWidth = titleMaxWidth,
+            artistStyle = artistStyle,
+            playSize = playSize,
+            playIcon = playIcon,
+            onClick = { onAlbum(album.id) },
+            onPlay = { onPlayAlbum(album.id) },
+        )
     }
 }
 
@@ -829,6 +896,7 @@ private fun AlbumCard(
     playSize: Dp,
     playIcon: Dp,
     onClick: () -> Unit,
+    onPlay: () -> Unit,
     titleMaxWidth: Dp? = null,
 ) {
     val hue = album.hue()
@@ -846,9 +914,10 @@ private fun AlbumCard(
                 .fillMaxSize()
                 .clip(RoundedCornerShape(radius)),
         ) {
-            GeneratedCoverArt(
-                hue = hue,
+            CoverArt(
+                artworkUri = album.artworkUri,
                 seed = album.artSeed(),
+                hue = hue,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .offset(x = blobOffset, y = blobOffset)
@@ -880,21 +949,28 @@ private fun AlbumCard(
                 )
                 Spacer(modifier = Modifier.weight(1f))
             }
-            Surface(
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(contentPadding)
-                    .size(playSize),
-                shape = CircleShape,
-                color = Color(palette.onPrimaryContainer),
-                contentColor = Color(palette.primaryContainer),
+                    .size(maxOf(playSize, 48.dp))
+                    .semantics { contentDescription = "Play ${album.title}" }
+                    .clickable(onClick = onPlay),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_play),
-                        contentDescription = null,
-                        modifier = Modifier.size(playIcon),
-                    )
+                Surface(
+                    modifier = Modifier.size(playSize),
+                    shape = CircleShape,
+                    color = Color(palette.onPrimaryContainer),
+                    contentColor = Color(palette.primaryContainer),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_play),
+                            contentDescription = null,
+                            modifier = Modifier.size(playIcon),
+                        )
+                    }
                 }
             }
         }
@@ -906,6 +982,82 @@ private fun DurationText(durationMs: Long, style: TextStyle) {
     val duration = formatPlaybackTime(durationMs)
     if (duration.isNotBlank()) {
         Text(duration, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+private val previewAlbums = listOf(
+    Album(id = "album-1", title = "Long Way Home", albumArtist = "Neon Meridian", trackCount = 10),
+    Album(id = "album-2", title = "Glass Harbor", albumArtist = "Low Tide Choir", trackCount = 8),
+    Album(id = "album-3", title = "Paper Satellites", albumArtist = "Aster Field", trackCount = 12),
+)
+
+private val previewTracks = listOf(
+    Track(
+        id = 1L,
+        uri = "content://preview/1",
+        title = "Long Way Home",
+        artist = "Neon Meridian",
+        album = "Long Way Home",
+        durationMs = 214_000,
+    ),
+    Track(
+        id = 2L,
+        uri = "content://preview/2",
+        title = "Glass Harbor",
+        artist = "Low Tide Choir",
+        album = "Glass Harbor",
+        durationMs = 187_000,
+    ),
+    Track(
+        id = 3L,
+        uri = "content://preview/3",
+        title = "Paper Satellites",
+        artist = "Aster Field",
+        album = "Paper Satellites",
+        durationMs = 251_000,
+    ),
+)
+
+private val previewState = LibraryUiState(albums = previewAlbums, tracks = previewTracks)
+
+@Preview(name = "Phone portrait light", widthDp = 393, heightDp = 851, showBackground = true)
+@Preview(
+    name = "Phone portrait dark",
+    widthDp = 393,
+    heightDp = 851,
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(name = "Phone landscape light", widthDp = 851, heightDp = 393, showBackground = true)
+@Preview(
+    name = "Phone landscape dark",
+    widthDp = 851,
+    heightDp = 393,
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(name = "Tablet portrait light", widthDp = 800, heightDp = 1280, showBackground = true)
+@Preview(
+    name = "Tablet portrait dark",
+    widthDp = 800,
+    heightDp = 1280,
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(name = "Tablet landscape light", widthDp = 1280, heightDp = 800, showBackground = true)
+@Preview(
+    name = "Tablet landscape dark",
+    widthDp = 1280,
+    heightDp = 800,
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+internal fun LibraryScreenPreview() {
+    BitstreamTheme(albumColors = false) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            LibraryScreen(state = previewState)
+        }
     }
 }
 

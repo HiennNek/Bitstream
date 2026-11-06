@@ -11,9 +11,11 @@ import android.media.AudioManager
 import android.os.Build
 import android.os.Looper
 import android.os.PowerManager
+import androidx.annotation.OptIn
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import dev.hien.bitstream.core.model.PlaybackStatus
@@ -161,6 +163,7 @@ class PlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
         mediaSession
 
+    @OptIn(UnstableApi::class)
     override fun onTaskRemoved(rootIntent: Intent?) {
         val currentPlayer = player
         val isStreaming = currentPlayer != null &&

@@ -119,7 +119,11 @@ class NowPlayingViewModel(
     }
 
     fun previous() {
-        controller.previous()
+        if (_position.value > 3_000L) {
+            controller.seekTo(0L)
+        } else {
+            controller.previous()
+        }
     }
 
     fun toggleShuffle() {

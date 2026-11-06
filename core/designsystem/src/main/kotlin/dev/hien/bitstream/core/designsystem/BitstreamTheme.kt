@@ -1,5 +1,6 @@
 package dev.hien.bitstream.core.designsystem
 
+import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -9,9 +10,13 @@ import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
 private val DeepTealLight = lightColorScheme(
     primary = Color(0xFF006A6A),
@@ -52,9 +57,9 @@ private val DeepTealDark = darkColorScheme(
 )
 
 /**
- * Material 3 Expressive theme. When [albumColors] is on and a track is playing,
- * the whole scheme is generated from that album's hue; otherwise it falls back to
- * the static deep-teal scheme.
+ * Material 3 Expressive theme. When [albumColors] is on, the scheme follows the
+ * playing artwork's dominant hue, then the Android wallpaper scheme, then the
+ * static deep-teal brand fallback.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -64,13 +69,24 @@ fun BitstreamTheme(
     albumColors: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme: ColorScheme = if (albumColors && albumHue != null) {
-        rememberAnimatedColorScheme(trackPalette(albumHue, darkTheme).toColorScheme(darkTheme))
-    } else if (darkTheme) {
-        DeepTealDark
-    } else {
-        DeepTealLight
+    val context = LocalContext.current
+    val wallpaperScheme = remember(context, darkTheme, albumColors) {
+        if (albumColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        } else {
+            null
+        }
     }
+    val target = remember(albumHue, albumColors, darkTheme, wallpaperScheme) {
+        when {
+            albumColors && albumHue != null ->
+                trackPalette(albumHue, darkTheme).toColorScheme(darkTheme)
+            wallpaperScheme != null -> wallpaperScheme
+            darkTheme -> DeepTealDark
+            else -> DeepTealLight
+        }
+    }
+    val colorScheme = rememberAnimatedColorScheme(target)
 
     MaterialExpressiveTheme(
         colorScheme = colorScheme,
@@ -114,7 +130,45 @@ private fun TrackPalette.toColorScheme(dark: Boolean): ColorScheme {
 private fun rememberAnimatedColorScheme(target: ColorScheme): ColorScheme {
     val spec = tween<Color>(durationMillis = 500)
     return target.copy(
+        primary = animateColorAsState(target.primary, spec, label = "primary").value,
+        onPrimary = animateColorAsState(target.onPrimary, spec, label = "onPrimary").value,
+        primaryContainer = animateColorAsState(
+            target.primaryContainer,
+            spec,
+            label = "primaryContainer",
+        ).value,
+        onPrimaryContainer = animateColorAsState(
+            target.onPrimaryContainer,
+            spec,
+            label = "onPrimaryContainer",
+        ).value,
+        secondaryContainer = animateColorAsState(
+            target.secondaryContainer,
+            spec,
+            label = "secondaryContainer",
+        ).value,
+        onSecondaryContainer = animateColorAsState(
+            target.onSecondaryContainer,
+            spec,
+            label = "onSecondaryContainer",
+        ).value,
+        tertiaryContainer = animateColorAsState(
+            target.tertiaryContainer,
+            spec,
+            label = "tertiaryContainer",
+        ).value,
+        onTertiaryContainer = animateColorAsState(
+            target.onTertiaryContainer,
+            spec,
+            label = "onTertiaryContainer",
+        ).value,
         surface = animateColorAsState(target.surface, spec, label = "surface").value,
+        onSurface = animateColorAsState(target.onSurface, spec, label = "onSurface").value,
+        surfaceContainerLow = animateColorAsState(
+            target.surfaceContainerLow,
+            spec,
+            label = "surfaceContainerLow",
+        ).value,
         surfaceContainer = animateColorAsState(
             target.surfaceContainer,
             spec,
@@ -125,27 +179,20 @@ private fun rememberAnimatedColorScheme(target: ColorScheme): ColorScheme {
             spec,
             label = "surfaceContainerHigh",
         ).value,
-        onSurface = animateColorAsState(target.onSurface, spec, label = "onSurface").value,
+        surfaceContainerHighest = animateColorAsState(
+            target.surfaceContainerHighest,
+            spec,
+            label = "surfaceContainerHighest",
+        ).value,
         onSurfaceVariant = animateColorAsState(
             target.onSurfaceVariant,
             spec,
             label = "onSurfaceVariant",
         ).value,
-        primary = animateColorAsState(target.primary, spec, label = "primary").value,
-        primaryContainer = animateColorAsState(
-            target.primaryContainer,
+        outlineVariant = animateColorAsState(
+            target.outlineVariant,
             spec,
-            label = "primaryContainer",
-        ).value,
-        secondaryContainer = animateColorAsState(
-            target.secondaryContainer,
-            spec,
-            label = "secondaryContainer",
-        ).value,
-        tertiaryContainer = animateColorAsState(
-            target.tertiaryContainer,
-            spec,
-            label = "tertiaryContainer",
+            label = "outlineVariant",
         ).value,
     )
 }

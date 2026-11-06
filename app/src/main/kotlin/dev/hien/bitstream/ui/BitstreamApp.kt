@@ -48,9 +48,9 @@ import dev.hien.bitstream.core.designsystem.detailPopExit
 import dev.hien.bitstream.core.designsystem.fadeThroughEnter
 import dev.hien.bitstream.core.designsystem.fadeThroughExit
 import dev.hien.bitstream.core.designsystem.BitstreamTheme
-import dev.hien.bitstream.core.designsystem.trackHue
 import dev.hien.bitstream.ui.adaptive.AdaptiveNavItem
 import dev.hien.bitstream.ui.adaptive.AdaptiveNavigationScaffold
+import dev.hien.bitstream.ui.components.rememberArtworkHue
 import dev.hien.bitstream.ui.library.AlbumScreen
 import dev.hien.bitstream.ui.library.ArtistScreen
 import dev.hien.bitstream.ui.library.FavoritesRoute
@@ -100,9 +100,7 @@ fun BitstreamApp() {
         ThemePreference.LIGHT -> false
         ThemePreference.DARK -> true
     }
-    val albumHue = nowPlayingState.track?.let {
-        trackHue(it.albumArtist, it.album, it.artist, it.title)
-    }
+    val albumHue = rememberArtworkHue(nowPlayingState.track?.artworkUri)
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()

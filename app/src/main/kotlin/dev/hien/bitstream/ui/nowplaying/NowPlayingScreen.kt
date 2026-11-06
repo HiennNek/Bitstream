@@ -1,11 +1,14 @@
 package dev.hien.bitstream.ui.nowplaying
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -34,9 +37,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,6 +57,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -58,6 +68,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,10 +77,16 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
+import dev.hien.bitstream.core.designsystem.BitstreamTheme
 import dev.hien.bitstream.core.designsystem.Radii
 import dev.hien.bitstream.core.designsystem.WaveformSeek
 import dev.hien.bitstream.core.designsystem.formatPlaybackTime
 import dev.hien.bitstream.core.designsystem.pathLabel
+import dev.hien.bitstream.core.designsystem.rememberMotionEnabled
+import dev.hien.bitstream.core.designsystem.scaleOnPress
+import dev.hien.bitstream.core.model.BitPerfectPath
+import dev.hien.bitstream.core.model.Integrity
+import dev.hien.bitstream.core.model.PlaybackStatus
 import dev.hien.bitstream.core.model.RepeatMode
 import dev.hien.bitstream.core.model.Track
 import dev.hien.bitstream.core.playback.usb.DacState
@@ -166,6 +183,9 @@ fun NowPlayingRoute(
                 SongsPane(
                     tracks = libraryState.tracks,
                     width = songsWidth,
+                    favoriteIds = favoritesState.favoriteIds,
+                    playingId = state.track?.id,
+                    isPlaying = state.isPlaying,
                     onTrack = container::playTrack,
                 )
                 Surface(
@@ -336,8 +356,6 @@ private fun PhonePortraitPlayer(state: NowPlayingUiState, c: PlayerCallbacks) {
                 artistStyle = MaterialTheme.typography.bodyLarge,
                 favoriteSize = 56.dp,
                 favoriteIcon = 26.dp,
-                favoriteOnRadius = 18.dp,
-                favoriteOffRadius = 28.dp,
                 gap = 16.dp,
                 modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp),
             )
@@ -418,8 +436,6 @@ private fun PhoneLandscapePlayer(state: NowPlayingUiState, c: PlayerCallbacks) {
                 artistStyle = MaterialTheme.typography.bodyLarge,
                 favoriteSize = 56.dp,
                 favoriteIcon = 26.dp,
-                favoriteOnRadius = 18.dp,
-                favoriteOffRadius = 28.dp,
                 gap = 16.dp,
             )
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -490,8 +506,6 @@ private fun TabletPortraitPlayer(state: NowPlayingUiState, c: PlayerCallbacks) {
                 artistStyle = bigArtist,
                 favoriteSize = 64.dp,
                 favoriteIcon = 30.dp,
-                favoriteOnRadius = 20.dp,
-                favoriteOffRadius = 32.dp,
                 gap = 20.dp,
                 modifier = Modifier.padding(top = 28.dp),
             )
@@ -569,8 +583,6 @@ private fun TabletLandscapePlayer(state: NowPlayingUiState, c: PlayerCallbacks) 
             artistStyle = panelArtist,
             favoriteSize = 56.dp,
             favoriteIcon = 28.dp,
-            favoriteOnRadius = 18.dp,
-            favoriteOffRadius = 28.dp,
             gap = 16.dp,
             modifier = Modifier.padding(top = 20.dp),
         )
@@ -658,8 +670,6 @@ private fun TrackTitleRow(
     artistStyle: TextStyle,
     favoriteSize: Dp,
     favoriteIcon: Dp,
-    favoriteOnRadius: Dp,
-    favoriteOffRadius: Dp,
     gap: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -672,7 +682,7 @@ private fun TrackTitleRow(
             Text(
                 text = track?.title ?: "Nothing playing",
                 style = titleStyle,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.testTag("now_playing_title"),
             )
@@ -695,53 +705,40 @@ private fun TrackTitleRow(
                 onClick = { onToggleFavorite(track.id) },
                 size = favoriteSize,
                 iconSize = favoriteIcon,
-                onRadius = favoriteOnRadius,
-                offRadius = favoriteOffRadius,
             )
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun FavoritePill(
     favorite: Boolean,
     onClick: () -> Unit,
     size: Dp,
     iconSize: Dp,
-    onRadius: Dp,
-    offRadius: Dp,
 ) {
-    val radius by animateDpAsState(
-        targetValue = if (favorite) onRadius else offRadius,
-        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
-        label = "favoriteCorner",
-    )
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(radius),
-        color = if (favorite) {
-            MaterialTheme.colorScheme.tertiaryContainer
-        } else {
-            MaterialTheme.colorScheme.surfaceContainerHigh
-        },
-        contentColor = if (favorite) {
-            MaterialTheme.colorScheme.onTertiaryContainer
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
+    IconToggleButton(
+        checked = favorite,
+        onCheckedChange = { onClick() },
+        shapes = IconButtonDefaults.toggleableShapes(),
+        colors = IconButtonDefaults.iconToggleButtonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            checkedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            checkedContentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+        ),
         modifier = Modifier
             .size(size)
             .testTag("now_playing_favorite"),
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                painter = painterResource(
-                    if (favorite) R.drawable.ic_favorite else R.drawable.ic_favorite_border,
-                ),
-                contentDescription = if (favorite) "Remove from favorites" else "Add to favorites",
-                modifier = Modifier.size(iconSize),
-            )
-        }
+        Icon(
+            painter = painterResource(
+                if (favorite) R.drawable.ic_favorite else R.drawable.ic_favorite_border,
+            ),
+            contentDescription = if (favorite) "Remove from favorites" else "Add to favorites",
+            modifier = Modifier.size(iconSize),
+        )
     }
 }
 
@@ -912,7 +909,7 @@ private fun UpNextTablet(upNext: List<Track>, onQueue: () -> Unit) {
                     modifier = Modifier.padding(start = 8.dp, bottom = 8.dp),
                 )
             } else {
-                upNext.take(2).forEach { track ->
+                upNext.take(3).forEach { track ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -950,7 +947,16 @@ private fun UpNextTablet(upNext: List<Track>, onQueue: () -> Unit) {
 }
 
 @Composable
-private fun SongsPane(tracks: List<Track>, width: Dp, onTrack: (Long) -> Unit) {
+private fun SongsPane(
+    tracks: List<Track>,
+    width: Dp,
+    favoriteIds: Set<Long>,
+    playingId: Long?,
+    isPlaying: Boolean,
+    onTrack: (Long) -> Unit,
+) {
+    var favoritesOnly by rememberSaveable { mutableStateOf(false) }
+    val visible = if (favoritesOnly) tracks.filter { it.id in favoriteIds } else tracks
     Column(
         modifier = Modifier
             .width(width)
@@ -964,13 +970,28 @@ private fun SongsPane(tracks: List<Track>, width: Dp, onTrack: (Long) -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        Row(
+            modifier = Modifier.padding(start = 16.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            FilterChip(
+                selected = !favoritesOnly,
+                onClick = { favoritesOnly = false },
+                label = { Text("All") },
+            )
+            FilterChip(
+                selected = favoritesOnly,
+                onClick = { favoritesOnly = true },
+                label = { Text("Favorites") },
+            )
+        }
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("now_playing_song_list"),
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
-            items(tracks, key = { it.id }) { track ->
+            items(visible, key = { it.id }) { track ->
                 TrackRow(
                     track = track,
                     onClick = { onTrack(track.id) },
@@ -984,14 +1005,44 @@ private fun SongsPane(tracks: List<Track>, width: Dp, onTrack: (Long) -> Unit) {
                         CoverArt(track = track, modifier = Modifier.size(52.dp))
                     },
                     trailing = {
-                        Text(
-                            text = formatPlaybackTime(track.durationMs),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            if (track.id == playingId) {
+                                PlayingBars(active = isPlaying)
+                            }
+                            Text(
+                                text = formatPlaybackTime(track.durationMs),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     },
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun PlayingBars(active: Boolean) {
+    val color = if (active) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Canvas(modifier = Modifier.size(width = 16.dp, height = 18.dp)) {
+        val barWidth = size.width / 5f
+        val heights = floatArrayOf(0.55f, 1f, 0.75f)
+        heights.forEachIndexed { index, fraction ->
+            val barHeight = size.height * fraction
+            drawRoundRect(
+                color = color,
+                topLeft = Offset(index * barWidth * 2f, size.height - barHeight),
+                size = Size(barWidth, barHeight),
+                cornerRadius = CornerRadius(barWidth / 2f),
+            )
         }
     }
 }
@@ -1141,7 +1192,7 @@ private val miniTabletPortrait = miniTabletLandscape.copy(
     progressBottom = 8.dp,
 )
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MiniPlayerBar(
     state: NowPlayingUiState,
@@ -1154,6 +1205,7 @@ fun MiniPlayerBar(
     modifier: Modifier = Modifier,
 ) {
     val track = state.track ?: return
+    val playInteraction = remember { MutableInteractionSource() }
     val configuration = LocalConfiguration.current
     val metrics = when {
         configuration.screenWidthDp >= 840 && configuration.screenHeightDp >= 600 -> miniTabletLandscape
@@ -1241,7 +1293,9 @@ fun MiniPlayerBar(
                     shape = RoundedCornerShape(playCorner),
                     color = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
+                    interactionSource = playInteraction,
                     modifier = Modifier
+                        .scaleOnPress(playInteraction)
                         .size(width = metrics.playWidth, height = metrics.playHeight)
                         .testTag("mini_player_play_pause"),
                 ) {
@@ -1267,19 +1321,147 @@ fun MiniPlayerBar(
                     )
                 }
             }
-            LinearProgressIndicator(
-                progress = { progress },
-                gapSize = 0.dp,
-                drawStopIndicator = {},
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = metrics.progressInset, vertical = 0.dp)
-                    .padding(bottom = metrics.progressBottom)
-                    .height(4.dp),
-            )
+            val progressModifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = metrics.progressInset, vertical = 0.dp)
+                .padding(bottom = metrics.progressBottom)
+                .height(4.dp)
+            if (state.isPlaying && rememberMotionEnabled()) {
+                LinearWavyProgressIndicator(
+                    progress = { progress },
+                    gapSize = 0.dp,
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = progressModifier,
+                )
+            } else {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    gapSize = 0.dp,
+                    drawStopIndicator = {},
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = progressModifier,
+                )
+            }
+        }
+    }
+}
+
+private val previewNowPlayingTrack = Track(
+    id = 1L,
+    uri = "content://preview/1",
+    title = "Long Way Home",
+    artist = "Neon Meridian",
+    album = "Long Way Home",
+    albumArtist = "Neon Meridian",
+    durationMs = 243_000,
+    sampleRate = 96_000,
+    bitDepth = 24,
+)
+
+private val previewUpNext = listOf(
+    Track(
+        id = 2L,
+        uri = "content://preview/2",
+        title = "Glass Harbor",
+        artist = "Low Tide Choir",
+        album = "Glass Harbor",
+        durationMs = 187_000,
+    ),
+    Track(
+        id = 3L,
+        uri = "content://preview/3",
+        title = "Paper Satellites",
+        artist = "Aster Field",
+        album = "Paper Satellites",
+        durationMs = 251_000,
+    ),
+    Track(
+        id = 4L,
+        uri = "content://preview/4",
+        title = "Night Bus",
+        artist = "Slow Cinema",
+        album = "Night Bus",
+        durationMs = 205_000,
+    ),
+)
+
+private val previewNowPlayingState = NowPlayingUiState(
+    status = PlaybackStatus.READY,
+    track = previewNowPlayingTrack,
+    position = 69_000,
+    duration = 243_000,
+    path = BitPerfectPath.BIT_PERFECT,
+    integrity = Integrity.VERIFIED,
+    dacName = "USB DAC",
+    shuffle = true,
+    repeat = RepeatMode.ALL,
+    queueSize = 4,
+)
+
+@Preview(name = "Phone portrait light", widthDp = 393, heightDp = 851, showBackground = true)
+@Preview(
+    name = "Phone portrait dark",
+    widthDp = 393,
+    heightDp = 851,
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(name = "Phone landscape light", widthDp = 851, heightDp = 393, showBackground = true)
+@Preview(
+    name = "Phone landscape dark",
+    widthDp = 851,
+    heightDp = 393,
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(name = "Tablet portrait light", widthDp = 800, heightDp = 1280, showBackground = true)
+@Preview(
+    name = "Tablet portrait dark",
+    widthDp = 800,
+    heightDp = 1280,
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Preview(name = "Tablet landscape light", widthDp = 1280, heightDp = 800, showBackground = true)
+@Preview(
+    name = "Tablet landscape dark",
+    widthDp = 1280,
+    heightDp = 800,
+    showBackground = true,
+    uiMode = Configuration.UI_MODE_NIGHT_YES,
+)
+@Composable
+internal fun NowPlayingScreenPreview() {
+    BitstreamTheme(albumColors = false) {
+        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val layout = when {
+                    maxWidth >= 840.dp && maxHeight >= 600.dp -> NowPlayingLayout.TabletLandscape
+                    maxHeight < 600.dp -> NowPlayingLayout.PhoneLandscape
+                    maxWidth < 600.dp -> NowPlayingLayout.PhonePortrait
+                    else -> NowPlayingLayout.TabletPortrait
+                }
+                NowPlayingContent(
+                    state = previewNowPlayingState,
+                    positionMs = 69_000,
+                    durationMs = 243_000,
+                    favoriteIds = setOf(1L),
+                    upNext = previewUpNext,
+                    layout = layout,
+                    onBack = {},
+                    onPlayPause = {},
+                    onSeek = {},
+                    onNext = {},
+                    onPrevious = {},
+                    onToggleShuffle = {},
+                    onCycleRepeat = {},
+                    onQueue = {},
+                    onOutput = {},
+                )
+            }
         }
     }
 }

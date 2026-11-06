@@ -2,21 +2,33 @@ package dev.hien.bitstream.core.designsystem
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
  * The mockup's type ramp. Every size, line height, weight and tracking below is
- * taken from `mork.html`; the platform Roboto family renders it.
+ * taken from `mork.html`; Roboto Flex supplies the variable weights.
  */
+private val RobotoFlex = FontFamily(
+    listOf(400, 500, 600, 650, 700, 750).map { weight ->
+        Font(
+            resId = R.font.roboto_flex,
+            weight = FontWeight(weight),
+            variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
+        )
+    },
+)
+
 private fun style(
     size: Int,
     line: Int,
     weight: Int,
     tracking: Float = 0f,
 ): TextStyle = TextStyle(
-    fontFamily = FontFamily.Default,
+    fontFamily = RobotoFlex,
     fontSize = size.sp,
     lineHeight = line.sp,
     fontWeight = FontWeight(weight),
@@ -33,7 +45,7 @@ private val titleLarge = style(22, 28, 650)
 private val titleMedium = style(16, 22, 600)
 private val titleSmall = style(15, 20, 600)
 private val bodyLarge = style(16, 24, 500)
-private val bodyMedium = style(14, 20, 400)
+private val bodyMedium = style(14, 20, 500)
 private val bodySmall = style(13, 18, 400)
 private val labelLarge = style(15, 20, 600)
 private val labelMedium = style(12, 16, 500, 0.4f)
