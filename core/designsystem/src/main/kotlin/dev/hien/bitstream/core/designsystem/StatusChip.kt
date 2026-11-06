@@ -128,8 +128,8 @@ fun StatusChip(
 
     FlowRow(
         modifier = modifier.testTag("status_chip"),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(Spacing.sm),
     ) {
         StatusFactPill(
             text = pathText,
@@ -188,12 +188,12 @@ private fun StatusFactPill(
             .testTag(tag)
             .then(clickModifier)
             .semantics { contentDescription = text },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(Radii.md),
         color = containerColor,
         contentColor = contentColor,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            modifier = Modifier.padding(horizontal = Spacing.md, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

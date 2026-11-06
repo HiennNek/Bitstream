@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -52,6 +51,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.hien.bitstream.LocalAppContainer
+import dev.hien.bitstream.core.designsystem.LabeledValueRow
+import dev.hien.bitstream.core.designsystem.Spacing
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.playback.native.NativeAudio
 import dev.hien.bitstream.core.playback.usb.DacState
@@ -124,8 +125,8 @@ fun UsbDebugScreen(
                 modifier = Modifier
                     .widthIn(max = 840.dp)
                     .fillMaxHeight(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(Spacing.screen),
+                verticalArrangement = Arrangement.spacedBy(Spacing.md),
             ) {
                 item {
                     StatusCard(
@@ -188,8 +189,8 @@ private fun StatusCard(
 ) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             when (state) {
                 DacState.NoDevice -> {
@@ -290,23 +291,23 @@ private fun DeviceRow(
 private fun DeviceDetails(device: UacDevice) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            InfoRow("UAC version", "USB Audio Class ${device.uacVersion}.0")
-            InfoRow("Control interface", device.controlInterface.toString())
-            InfoRow("Streaming interface", device.streamingInterface.toString())
-            InfoRow("Alt setting", device.altSetting.toString())
-            InfoRow("Endpoint", "0x%02X (OUT)".format(Locale.US, device.endpointAddress))
-            InfoRow("Sync", syncLabel(device.syncType))
+            LabeledValueRow(label = "UAC version", value = "USB Audio Class ${device.uacVersion}.0")
+            LabeledValueRow(label = "Control interface", value = device.controlInterface.toString())
+            LabeledValueRow(label = "Streaming interface", value = device.streamingInterface.toString())
+            LabeledValueRow(label = "Alt setting", value = device.altSetting.toString())
+            LabeledValueRow(label = "Endpoint", value = "0x%02X (OUT)".format(Locale.US, device.endpointAddress))
+            LabeledValueRow(label = "Sync", value = syncLabel(device.syncType))
             device.feedbackEndpoint?.let {
-                InfoRow("Feedback endpoint", "0x%02X".format(Locale.US, it))
+                LabeledValueRow(label = "Feedback endpoint", value = "0x%02X".format(Locale.US, it))
             }
-            InfoRow("Max packet", "${device.maxPacketSize} bytes")
-            InfoRow("Interval", device.interval.toString())
-            device.clockSourceId?.let { InfoRow("Clock source", it.toString()) }
-            device.featureUnitId?.let { InfoRow("Feature unit", it.toString()) }
-            device.volume?.let { InfoRow("Volume range", volumeLabel(it)) }
+            LabeledValueRow(label = "Max packet", value = "${device.maxPacketSize} bytes")
+            LabeledValueRow(label = "Interval", value = device.interval.toString())
+            device.clockSourceId?.let { LabeledValueRow(label = "Clock source", value = it.toString()) }
+            device.featureUnitId?.let { LabeledValueRow(label = "Feature unit", value = it.toString()) }
+            device.volume?.let { LabeledValueRow(label = "Volume range", value = volumeLabel(it)) }
         }
     }
 }
@@ -315,18 +316,18 @@ private fun DeviceDetails(device: UacDevice) {
 private fun FormatsSection(formats: List<UacFormat>) {
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(Spacing.lg),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text("Formats", style = MaterialTheme.typography.titleMedium)
             formats.forEachIndexed { index, format ->
                 if (index > 0) HorizontalDivider()
-                InfoRow("Channels", format.channels.toString())
-                InfoRow("Subslot", "${format.subslotBytes} bytes")
-                InfoRow("Bit resolution", "${format.bitResolution}-bit")
-                InfoRow(
-                    "Sample rates",
-                    if (format.sampleRates.isEmpty()) {
+                LabeledValueRow(label = "Channels", value = format.channels.toString())
+                LabeledValueRow(label = "Subslot", value = "${format.subslotBytes} bytes")
+                LabeledValueRow(label = "Bit resolution", value = "${format.bitResolution}-bit")
+                LabeledValueRow(
+                    label = "Sample rates",
+                    value = if (format.sampleRates.isEmpty()) {
                         "Not reported by the descriptor"
                     } else {
                         format.sampleRates.joinToString(" / ", transform = ::formatRate)
@@ -435,8 +436,8 @@ private fun NativePlaybackCard(connected: DacState.Connected) {
 
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Text("Native playback", style = MaterialTheme.typography.titleMedium)
             Text(
@@ -535,8 +536,8 @@ private fun DescriptorSection(rawDescriptor: ByteArray) {
 
     ElevatedCard(modifier = Modifier.fillMaxWidth()) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(Spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -571,7 +572,7 @@ private fun DescriptorSection(rawDescriptor: ByteArray) {
                         text = hex,
                         modifier = Modifier
                             .horizontalScroll(rememberScrollState())
-                            .padding(12.dp),
+                            .padding(Spacing.md),
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = FontFamily.Monospace,
                         softWrap = false,
@@ -579,23 +580,6 @@ private fun DescriptorSection(rawDescriptor: ByteArray) {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun InfoRow(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            modifier = Modifier.width(150.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value,
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyMedium,
-        )
     }
 }
 

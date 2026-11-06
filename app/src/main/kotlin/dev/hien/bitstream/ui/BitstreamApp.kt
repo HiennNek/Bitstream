@@ -11,8 +11,14 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +28,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
@@ -130,7 +138,11 @@ fun BitstreamApp() {
                 )
             },
             labelContent = {
-                Text(destination.label, style = MaterialTheme.typography.labelMedium)
+                Text(
+                    text = destination.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = if (selectedIndex == index) FontWeight(700) else FontWeight(500),
+                )
             },
         )
     }
@@ -143,7 +155,18 @@ fun BitstreamApp() {
         val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
         val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
         val slide = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
-        AdaptiveNavigationScaffold(items = navItems) {
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                    ),
+                ),
+        ) {
+            val showNavigation = currentRoute != NOW_PLAYING_ROUTE ||
+                (maxWidth >= 840.dp && maxHeight >= 600.dp)
+        AdaptiveNavigationScaffold(items = navItems, showNavigation = showNavigation) {
             SharedTransitionLayout {
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(modifier = Modifier.weight(1f)) {
@@ -300,6 +323,7 @@ fun BitstreamApp() {
                             }
                         },
                         onPlayPause = nowPlayingViewModel::togglePlayPause,
+                        onPrevious = nowPlayingViewModel::previous,
                         onNext = nowPlayingViewModel::next,
                         sharedTransitionScope = this@SharedTransitionLayout,
                         animatedVisibilityScope = this,
@@ -307,6 +331,7 @@ fun BitstreamApp() {
                 }
             }
         }
+        }
+        }
     }
-}
 }

@@ -74,6 +74,7 @@ fun BitstreamTheme(
 
     MaterialExpressiveTheme(
         colorScheme = colorScheme,
+        typography = BitstreamTypography,
         motionScheme = MotionScheme.expressive(),
         content = content,
     )
@@ -101,6 +102,7 @@ private fun TrackPalette.toColorScheme(dark: Boolean): ColorScheme {
         surfaceVariant = Color(surfaceContainerHigh),
         onSurfaceVariant = Color(onSurfaceVariant),
         surfaceContainer = Color(surfaceContainer),
+        surfaceContainerLow = Color(surfaceContainer),
         surfaceContainerHigh = Color(surfaceContainerHigh),
         surfaceContainerHighest = Color(surfaceContainerHighest),
         outlineVariant = Color(outlineVariant),

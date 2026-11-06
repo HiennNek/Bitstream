@@ -16,7 +16,7 @@
         android:enableOnBackInvokedCallback="true"
         android:label="Bitstream"
         android:supportsRtl="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/Theme.Bitstream">
 
         <activity
             android:name=".MainActivity"

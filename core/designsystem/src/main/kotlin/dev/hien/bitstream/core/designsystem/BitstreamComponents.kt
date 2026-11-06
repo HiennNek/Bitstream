@@ -1,59 +1,49 @@
 package dev.hien.bitstream.core.designsystem
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asComposePath
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.graphics.shapes.RoundedPolygon
-import androidx.graphics.shapes.toPath
-import kotlin.math.min
 
 /** Large display header used by every screen instead of a [androidx.compose.material3.TopAppBar]. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun BitstreamLargeHeader(
     title: String,
     modifier: Modifier = Modifier,
+    style: TextStyle = MaterialTheme.typography.displaySmall,
+    height: Dp = 56.dp,
+    startPadding: Dp = Spacing.xxl,
+    endPadding: Dp = Spacing.md,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 56.dp)
-            .padding(start = Spacing.xxl, end = Spacing.md),
+            .height(height)
+            .padding(start = startPadding, end = endPadding),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.displaySmallEmphasized,
+            style = style,
             modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -69,12 +59,17 @@ fun BitstreamSearchPill(
     painter: Painter,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    height: Dp = 56.dp,
+    iconSize: Dp = 24.dp,
+    contentPadding: Dp = Spacing.xl,
+    gap: Dp = Spacing.lg,
+    textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
     Surface(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp),
+            .height(height),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -82,14 +77,14 @@ fun BitstreamSearchPill(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = Spacing.xl),
+                .padding(horizontal = contentPadding),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(gap),
         ) {
-            Icon(painter = painter, contentDescription = null)
+            Icon(painter = painter, contentDescription = null, modifier = Modifier.size(iconSize))
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyLarge,
+                style = textStyle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -97,73 +92,54 @@ fun BitstreamSearchPill(
     }
 }
 
-/** Shortcut tile: a Material-shape glyph on the left, label on the right. */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** Shortcut tile: a lobed blob glyph on the left, label on the right. */
 @Composable
 fun BitstreamTile(
     label: String,
     painter: Painter,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    sides: Int = 8,
+    height: Dp = 80.dp,
+    radius: Dp = Radii.tile,
+    blobSize: Dp = 52.dp,
+    iconSize: Dp = 24.dp,
+    contentPadding: Dp = Spacing.md,
+    gap: Dp = Spacing.md,
+    labelStyle: TextStyle = MaterialTheme.typography.titleMedium,
 ) {
     Surface(
         onClick = onClick,
-        modifier = modifier.height(80.dp),
-        shape = RoundedCornerShape(Radii.tile),
+        modifier = modifier.height(height),
+        shape = RoundedCornerShape(radius),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = Spacing.lg),
+                .padding(horizontal = contentPadding),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Spacing.md),
+            horizontalArrangement = Arrangement.spacedBy(gap),
         ) {
-            MaterialShapeBackground(
-                polygon = MaterialShapes.Cookie9Sided,
+            BlobBackground(
+                sides = sides,
                 color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.size(52.dp),
+                modifier = Modifier.size(blobSize),
             ) {
                 Icon(
                     painter = painter,
                     contentDescription = null,
+                    modifier = Modifier.size(iconSize),
                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
             }
             Text(
                 text = label,
-                style = MaterialTheme.typography.titleMedium,
+                style = labelStyle,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-    }
-}
-
-/** Paints a [RoundedPolygon] as a centered, aspect-fit background behind [content]. */
-@Composable
-fun MaterialShapeBackground(
-    polygon: RoundedPolygon,
-    color: Color,
-    modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit = {},
-) {
-    val path = remember(polygon) { polygon.toPath().asComposePath() }
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Canvas(modifier = Modifier.matchParentSize()) {
-            val bounds = path.getBounds()
-            if (bounds.width <= 0f || bounds.height <= 0f) return@Canvas
-            val factor = min(size.width / bounds.width, size.height / bounds.height)
-            translate(
-                left = size.width / 2f - bounds.center.x * factor,
-                top = size.height / 2f - bounds.center.y * factor,
-            ) {
-                scale(factor, factor, pivot = Offset.Zero) {
-                    drawPath(path, color)
-                }
-            }
-        }
-        content()
     }
 }

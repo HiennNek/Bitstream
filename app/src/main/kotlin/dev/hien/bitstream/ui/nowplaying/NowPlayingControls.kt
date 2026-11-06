@@ -15,14 +15,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -31,19 +27,107 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.hien.bitstream.R
-import dev.hien.bitstream.core.designsystem.Radii
 import dev.hien.bitstream.core.model.RepeatMode
-import dev.hien.bitstream.core.model.VolumeState
 
-/**
- * Transport and mode toggles. Shapes and timing come from the Material motion
- * scheme; only the asymmetric pill radii are ours.
- */
+/** Per-layout transport dimensions copied from the mockup artboards. */
+data class TransportMetrics(
+    val inlineModes: Boolean,
+    val modeSize: Dp,
+    val modeIcon: Dp,
+    val modeOnRadius: Dp,
+    val modeOffRadius: Dp,
+    val sideWidth: Dp,
+    val height: Dp,
+    val sideRadius: Dp,
+    val sideInnerRadius: Dp,
+    val playWidth: Dp,
+    val playRadiusPlaying: Dp,
+    val playRadiusPaused: Dp,
+    val sideIcon: Dp,
+    val playIcon: Dp,
+    val gap: Dp,
+)
+
+val PhoneTransport = TransportMetrics(
+    inlineModes = false,
+    modeSize = 56.dp,
+    modeIcon = 24.dp,
+    modeOnRadius = 18.dp,
+    modeOffRadius = 28.dp,
+    sideWidth = 92.dp,
+    height = 80.dp,
+    sideRadius = 40.dp,
+    sideInnerRadius = 14.dp,
+    playWidth = 124.dp,
+    playRadiusPlaying = 28.dp,
+    playRadiusPaused = 40.dp,
+    sideIcon = 36.dp,
+    playIcon = 40.dp,
+    gap = 6.dp,
+)
+
+val PhoneLandscapeTransport = TransportMetrics(
+    inlineModes = true,
+    modeSize = 56.dp,
+    modeIcon = 26.dp,
+    modeOnRadius = 18.dp,
+    modeOffRadius = 28.dp,
+    sideWidth = 76.dp,
+    height = 72.dp,
+    sideRadius = 36.dp,
+    sideInnerRadius = 14.dp,
+    playWidth = 112.dp,
+    playRadiusPlaying = 26.dp,
+    playRadiusPaused = 36.dp,
+    sideIcon = 32.dp,
+    playIcon = 38.dp,
+    gap = 16.dp,
+)
+
+val TabletPortraitTransport = TransportMetrics(
+    inlineModes = true,
+    modeSize = 64.dp,
+    modeIcon = 28.dp,
+    modeOnRadius = 20.dp,
+    modeOffRadius = 32.dp,
+    sideWidth = 112.dp,
+    height = 88.dp,
+    sideRadius = 44.dp,
+    sideInnerRadius = 16.dp,
+    playWidth = 164.dp,
+    playRadiusPlaying = 32.dp,
+    playRadiusPaused = 44.dp,
+    sideIcon = 40.dp,
+    playIcon = 46.dp,
+    gap = 24.dp,
+)
+
+val TabletLandscapeTransport = TransportMetrics(
+    inlineModes = true,
+    modeSize = 56.dp,
+    modeIcon = 30.dp,
+    modeOnRadius = 18.dp,
+    modeOffRadius = 28.dp,
+    sideWidth = 92.dp,
+    height = 80.dp,
+    sideRadius = 40.dp,
+    sideInnerRadius = 14.dp,
+    playWidth = 132.dp,
+    playRadiusPlaying = 28.dp,
+    playRadiusPaused = 40.dp,
+    sideIcon = 36.dp,
+    playIcon = 42.dp,
+    gap = 20.dp,
+)
+
+/** Transport and mode toggles, with the mockup's asymmetric pill radii. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun NowPlayingControls(
+    metrics: TransportMetrics,
     isPlaying: Boolean,
     shuffle: Boolean,
     repeat: RepeatMode,
@@ -54,261 +138,235 @@ fun NowPlayingControls(
     onCycleRepeat: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.Dp>()
-    val playCorner by animateDpAsState(
-        targetValue = if (isPlaying) 28.dp else 40.dp,
-        animationSpec = spatial,
-        label = "playCorner",
-    )
+    val shuffleButton: @Composable () -> Unit = {
+        ModeButton(
+            checked = shuffle,
+            onClick = onToggleShuffle,
+            painter = R.drawable.ic_shuffle,
+            description = if (shuffle) "Shuffle on" else "Shuffle off",
+            onRadius = metrics.modeOnRadius,
+            offRadius = metrics.modeOffRadius,
+            iconSize = metrics.modeIcon,
+            modifier = Modifier
+                .size(metrics.modeSize)
+                .testTag("now_playing_shuffle"),
+        )
+    }
+    val repeatButton: @Composable () -> Unit = {
+        ModeButton(
+            checked = repeat != RepeatMode.OFF,
+            onClick = onCycleRepeat,
+            painter = if (repeat == RepeatMode.ONE) {
+                R.drawable.ic_repeat_one
+            } else {
+                R.drawable.ic_repeat
+            },
+            description = when (repeat) {
+                RepeatMode.OFF -> "Repeat off"
+                RepeatMode.ALL -> "Repeat all"
+                RepeatMode.ONE -> "Repeat one"
+            },
+            onRadius = metrics.modeOnRadius,
+            offRadius = metrics.modeOffRadius,
+            iconSize = metrics.modeIcon,
+            modifier = Modifier
+                .size(metrics.modeSize)
+                .testTag("now_playing_repeat"),
+        )
+    }
 
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
+    if (metrics.inlineModes) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(metrics.gap, Alignment.CenterHorizontally),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(
-                onClick = onPrevious,
-                shape = RoundedCornerShape(
-                    topStart = 40.dp,
-                    topEnd = 14.dp,
-                    bottomEnd = 14.dp,
-                    bottomStart = 40.dp,
-                ),
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier
-                    .weight(0.9f)
-                    .height(80.dp)
-                    .testTag("now_playing_previous"),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_skip_previous),
-                        contentDescription = "Previous track",
-                    )
-                }
-            }
-
-            Surface(
-                onClick = onPlayPause,
-                shape = RoundedCornerShape(playCorner),
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier
-                    .weight(1.2f)
-                    .height(80.dp)
-                    .testTag("now_playing_play_pause")
-                    .semantics {
-                        contentDescription = if (isPlaying) "Pause" else "Play"
-                    },
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    AnimatedContent(
-                        targetState = isPlaying,
-                        transitionSpec = {
-                            (fadeIn() + scaleIn(initialScale = 0.7f))
-                                .togetherWith(fadeOut())
-                        },
-                        label = "playPauseIcon",
-                    ) { playing ->
-                        Icon(
-                            painter = painterResource(
-                                if (playing) R.drawable.ic_pause else R.drawable.ic_play,
-                            ),
-                            contentDescription = null,
-                            modifier = Modifier.size(32.dp),
-                        )
-                    }
-                }
-            }
-
-            Surface(
-                onClick = onNext,
-                shape = RoundedCornerShape(
-                    topStart = 14.dp,
-                    topEnd = 40.dp,
-                    bottomEnd = 40.dp,
-                    bottomStart = 14.dp,
-                ),
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier
-                    .weight(0.9f)
-                    .height(80.dp)
-                    .testTag("now_playing_next"),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_skip_next),
-                        contentDescription = "Next track",
-                    )
-                }
-            }
+            shuffleButton()
+            SideButton(onPrevious, previous = true, metrics = metrics)
+            PlayButton(isPlaying, onPlayPause, metrics)
+            SideButton(onNext, previous = false, metrics = metrics)
+            repeatButton()
         }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            IconToggleButton(
-                checked = shuffle,
-                onCheckedChange = { onToggleShuffle() },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(56.dp)
-                    .testTag("now_playing_shuffle"),
+    } else {
+        Column(modifier = modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(metrics.gap, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_shuffle),
-                    contentDescription = if (shuffle) "Shuffle on" else "Shuffle off",
-                    tint = if (shuffle) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
+                SideButton(onPrevious, previous = true, metrics = metrics)
+                PlayButton(isPlaying, onPlayPause, metrics)
+                SideButton(onNext, previous = false, metrics = metrics)
             }
-            IconToggleButton(
-                checked = repeat != RepeatMode.OFF,
-                onCheckedChange = { onCycleRepeat() },
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .height(56.dp)
-                    .testTag("now_playing_repeat"),
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(
-                    painter = painterResource(
-                        if (repeat == RepeatMode.ONE) {
-                            R.drawable.ic_repeat_one
-                        } else {
-                            R.drawable.ic_repeat
-                        },
-                    ),
-                    contentDescription = when (repeat) {
+                ModeButton(
+                    checked = shuffle,
+                    onClick = onToggleShuffle,
+                    painter = R.drawable.ic_shuffle,
+                    description = if (shuffle) "Shuffle on" else "Shuffle off",
+                    onRadius = 18.dp,
+                    offRadius = 28.dp,
+                    iconSize = 24.dp,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(metrics.modeSize)
+                        .testTag("now_playing_shuffle"),
+                )
+                ModeButton(
+                    checked = repeat != RepeatMode.OFF,
+                    onClick = onCycleRepeat,
+                    painter = if (repeat == RepeatMode.ONE) {
+                        R.drawable.ic_repeat_one
+                    } else {
+                        R.drawable.ic_repeat
+                    },
+                    description = when (repeat) {
                         RepeatMode.OFF -> "Repeat off"
                         RepeatMode.ALL -> "Repeat all"
                         RepeatMode.ONE -> "Repeat one"
                     },
-                    tint = if (repeat != RepeatMode.OFF) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    onRadius = 18.dp,
+                    offRadius = 28.dp,
+                    iconSize = 24.dp,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(metrics.modeSize)
+                        .testTag("now_playing_repeat"),
                 )
             }
         }
     }
 }
 
-/** Hardware or software volume, mirroring the engine's current mode. */
 @Composable
-fun VolumeSection(
-    volume: VolumeState?,
-    onHardwareVolume: (Int) -> Unit,
-    onSoftwareVolume: (Boolean) -> Unit,
-    onSoftwareVolumeLevel: (Int) -> Unit = {},
+private fun SideButton(
+    onClick: () -> Unit,
+    previous: Boolean,
+    metrics: TransportMetrics,
+) {
+    val radius = metrics.sideRadius
+    val inner = metrics.sideInnerRadius
+    val shape = if (previous) {
+        RoundedCornerShape(
+            topStart = radius,
+            topEnd = inner,
+            bottomEnd = inner,
+            bottomStart = radius,
+        )
+    } else {
+        RoundedCornerShape(
+            topStart = inner,
+            topEnd = radius,
+            bottomEnd = radius,
+            bottomStart = inner,
+        )
+    }
+    Surface(
+        onClick = onClick,
+        shape = shape,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier = Modifier
+            .size(width = metrics.sideWidth, height = metrics.height)
+            .testTag(if (previous) "now_playing_previous" else "now_playing_next"),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                painter = painterResource(
+                    if (previous) R.drawable.ic_skip_previous else R.drawable.ic_skip_next,
+                ),
+                contentDescription = if (previous) "Previous track" else "Next track",
+                modifier = Modifier.size(metrics.sideIcon),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlayButton(
+    isPlaying: Boolean,
+    onClick: () -> Unit,
+    metrics: TransportMetrics,
+) {
+    val corner by animateDpAsState(
+        targetValue = if (isPlaying) metrics.playRadiusPlaying else metrics.playRadiusPaused,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "playCorner",
+    )
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(corner),
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        modifier = Modifier
+            .size(width = metrics.playWidth, height = metrics.height)
+            .testTag("now_playing_play_pause")
+            .semantics {
+                contentDescription = if (isPlaying) "Pause" else "Play"
+            },
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            AnimatedContent(
+                targetState = isPlaying,
+                transitionSpec = {
+                    (fadeIn() + scaleIn(initialScale = 0.7f)).togetherWith(fadeOut())
+                },
+                label = "playPauseIcon",
+            ) { playing ->
+                Icon(
+                    painter = painterResource(
+                        if (playing) R.drawable.ic_pause else R.drawable.ic_play,
+                    ),
+                    contentDescription = null,
+                    modifier = Modifier.size(metrics.playIcon),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModeButton(
+    checked: Boolean,
+    onClick: () -> Unit,
+    painter: Int,
+    description: String,
+    onRadius: Dp,
+    offRadius: Dp,
+    iconSize: Dp,
     modifier: Modifier = Modifier,
 ) {
+    val radius by animateDpAsState(
+        targetValue = if (checked) onRadius else offRadius,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "modeCorner",
+    )
     Surface(
-        shape = RoundedCornerShape(Radii.md),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-        modifier = modifier.fillMaxWidth(),
+        onClick = onClick,
+        shape = RoundedCornerShape(radius),
+        color = if (checked) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            MaterialTheme.colorScheme.secondaryContainer
+        },
+        contentColor = if (checked) {
+            MaterialTheme.colorScheme.onPrimary
+        } else {
+            MaterialTheme.colorScheme.onSecondaryContainer
+        },
+        modifier = modifier,
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            when (volume) {
-                is VolumeState.Hardware -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = "Hardware volume (UAC)",
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                        Text(
-                            text = "${volume.level}%",
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.testTag("hardware_volume_value"),
-                        )
-                    }
-                    Slider(
-                        value = volume.level / 100f,
-                        onValueChange = { fraction ->
-                            onHardwareVolume((fraction * 100f).toInt().coerceIn(0, 100))
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("hardware_volume_slider"),
-                    )
-                }
-
-                is VolumeState.Software -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Software volume (${volume.level}%) — not bit-perfect",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.tertiary,
-                            )
-                            Text(
-                                text = "Q1.30 digital attenuation + TPDF dither active.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        Button(
-                            onClick = { onSoftwareVolume(false) },
-                            modifier = Modifier.testTag("restore_bit_perfect_button"),
-                        ) {
-                            Text("Restore")
-                        }
-                    }
-                    Slider(
-                        value = volume.level / 100f,
-                        onValueChange = { fraction ->
-                            onSoftwareVolumeLevel((fraction * 100f).toInt().coerceIn(0, 100))
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("software_volume_slider"),
-                    )
-                }
-
-                VolumeState.Fixed, null -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = "Fixed output",
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.testTag("fixed_output_label"),
-                        )
-                        Text(
-                            text = "Unity / DAC hardware",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Slider(
-                        value = 1f,
-                        onValueChange = {},
-                        enabled = false,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-            }
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                painter = painterResource(painter),
+                contentDescription = description,
+                modifier = Modifier.size(iconSize),
+            )
         }
     }
 }

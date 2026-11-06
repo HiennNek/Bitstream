@@ -7,15 +7,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -45,10 +48,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
@@ -58,12 +67,12 @@ import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.BitstreamEmptyState
 import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
 import dev.hien.bitstream.core.designsystem.BitstreamSearchPill
-import dev.hien.bitstream.core.designsystem.BitstreamSectionHeader
 import dev.hien.bitstream.core.designsystem.BitstreamTile
-import dev.hien.bitstream.core.designsystem.Radii
-import dev.hien.bitstream.core.designsystem.Spacing
+import dev.hien.bitstream.core.designsystem.GeneratedCoverArt
 import dev.hien.bitstream.core.designsystem.formatPlaybackTime
 import dev.hien.bitstream.core.designsystem.formatRateDepth
+import dev.hien.bitstream.core.designsystem.trackHue
+import dev.hien.bitstream.core.designsystem.trackPalette
 import dev.hien.bitstream.core.model.Album
 import dev.hien.bitstream.core.model.Track
 import dev.hien.bitstream.ui.components.CoverArt
@@ -133,9 +142,10 @@ fun LibraryRoute(
         )
     }
 
-    if (state.empty) {
-        // An empty library has nothing to put in a detail pane, so let the
-        // empty state use the full window on tablets.
+    val detailKey = navigator.currentDestination?.contentKey
+    if (state.empty || detailKey == null) {
+        // With nothing selected, the library owns the whole window so it can use
+        // the mockup's wide home layout instead of a narrow list pane.
         listContent()
     } else {
         ListDetailPaneScaffold(
@@ -149,17 +159,15 @@ fun LibraryRoute(
                         contentAlignment = Alignment.TopCenter,
                     ) {
                         Box(modifier = Modifier.widthIn(max = 840.dp).fillMaxSize()) {
-                            val key = navigator.currentDestination?.contentKey
-                            when {
-                                key == null -> DetailPlaceholder()
-                                key.startsWith(ARTIST_PREFIX) -> ArtistScreen(
-                                    artistId = key.removePrefix(ARTIST_PREFIX),
+                            if (detailKey.startsWith(ARTIST_PREFIX)) {
+                                ArtistScreen(
+                                    artistId = detailKey.removePrefix(ARTIST_PREFIX),
                                     onTrack = onTrack,
                                     onBack = { scope.launch { navigator.navigateBack() } },
                                 )
-
-                                else -> AlbumScreen(
-                                    albumId = key.removePrefix(ALBUM_PREFIX),
+                            } else {
+                                AlbumScreen(
+                                    albumId = detailKey.removePrefix(ALBUM_PREFIX),
                                     onTrack = onTrack,
                                     onBack = { scope.launch { navigator.navigateBack() } },
                                 )
@@ -187,6 +195,752 @@ fun LibraryScreen(
     onShuffleAll: () -> Unit = {},
     onSettings: () -> Unit = {},
 ) {
+    if (state.empty && !state.isScanning) {
+        EmptyLibrary(onPickFolder = onPickFolder, onSettings = onSettings)
+        return
+    }
+
+    var showArtists by remember { mutableStateOf(false) }
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val compact = maxWidth < 600.dp
+        val short = maxHeight < 600.dp
+        val onArtists = { showArtists = true }
+        when {
+            compact -> CompactLibrary(state, onAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
+            short -> LandscapeLibrary(state, onAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
+            maxWidth >= 840.dp -> ExpandedLibrary(state, onAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
+            else -> PortraitLibrary(state, onAlbum, onTrack, onSearch, onFavorites, onArtists, onShuffleAll, onSettings)
+        }
+    }
+
+    ArtistsSheet(showArtists, state, onArtist = onArtist, onDismiss = { showArtists = false })
+}
+
+private enum class LibraryAction { Shuffle, Favorites, Artists, Folders }
+
+private val shortcuts = listOf(
+    Triple("Shuffle all", LibraryAction.Shuffle, 8),
+    Triple("Favorites", LibraryAction.Favorites, 10),
+    Triple("Artists", LibraryAction.Artists, 7),
+    Triple("Folders", LibraryAction.Folders, 12),
+)
+
+private val phoneSection = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight(650))
+private val phoneLandscapeCardTitle = TextStyle(
+    fontSize = 19.sp,
+    lineHeight = 24.sp,
+    fontWeight = FontWeight(700),
+    letterSpacing = (-0.2).sp,
+)
+private val tabletCardTitle = TextStyle(
+    fontSize = 24.sp,
+    lineHeight = 30.sp,
+    fontWeight = FontWeight(700),
+    letterSpacing = (-0.2).sp,
+)
+private val portraitCardTitle = TextStyle(
+    fontSize = 22.sp,
+    lineHeight = 28.sp,
+    fontWeight = FontWeight(700),
+    letterSpacing = (-0.2).sp,
+)
+private val portraitTableCellTitle = TextStyle(
+    fontSize = 28.sp,
+    lineHeight = 34.sp,
+    fontWeight = FontWeight(700),
+    letterSpacing = (-0.3).sp,
+)
+private val tabletLabel = TextStyle(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight(600))
+private val tabletRowTitle = TextStyle(fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight(600))
+
+private fun Album.hue(): Int = trackHue(albumArtist, title, albumArtist, title)
+
+private fun Album.artSeed(): Long = id.hashCode().toLong()
+
+@Composable
+private fun CompactLibrary(
+    state: LibraryUiState,
+    onAlbum: (String) -> Unit,
+    onTrack: (Long) -> Unit,
+    onSearch: () -> Unit,
+    onFavorites: () -> Unit,
+    onArtists: () -> Unit,
+    onShuffleAll: () -> Unit,
+    onSettings: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
+        ) {
+            item {
+                LibraryHeader(
+                    onSettings = onSettings,
+                    onSearch = onSearch,
+                    stacked = true,
+                    titleStyle = MaterialTheme.typography.displaySmall,
+                )
+            }
+            if (state.isScanning) {
+                item { ScanningRow() }
+            }
+            if (state.albums.isNotEmpty()) {
+                item { SectionTitle("Jump back in", MaterialTheme.typography.titleLarge, 24.dp, 12.dp) }
+                item {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(state.albums, key = { it.id }) { album ->
+                            AlbumCard(
+                                album = album,
+                                width = 236.dp,
+                                height = 272.dp,
+                                radius = 32.dp,
+                                blobSize = 250.dp,
+                                blobOffset = 60.dp,
+                                contentPadding = 20.dp,
+                                titleStyle = portraitCardTitle,
+                                artistStyle = MaterialTheme.typography.titleSmall,
+                                playSize = 52.dp,
+                                playIcon = 28.dp,
+                                onClick = { onAlbum(album.id) },
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                ShortcutGrid(
+                    onShuffleAll = onShuffleAll,
+                    onFavorites = onFavorites,
+                    onArtists = onArtists,
+                    onFolders = onSettings,
+                    columns = 2,
+                    height = 80.dp,
+                    radius = 28.dp,
+                    blobSize = 52.dp,
+                    iconSize = 24.dp,
+                    labelStyle = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp),
+                )
+            }
+            if (state.tracks.isNotEmpty()) {
+                item { SectionTitle("Recently added", MaterialTheme.typography.titleLarge, 28.dp, 8.dp) }
+                items(state.tracks.take(MAX_LIBRARY_TRACKS), key = { "track-${it.id}" }) { track ->
+                    TrackRow(
+                        track = track,
+                        onClick = { onTrack(track.id) },
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                        height = 64.dp,
+                        radius = 24.dp,
+                        leading = {
+                            CoverArt(
+                                artworkUri = track.artworkUri,
+                                seed = track.id,
+                                modifier = Modifier.size(46.dp),
+                            )
+                        },
+                        trailing = {
+                            DurationText(track.durationMs, MaterialTheme.typography.bodyMedium)
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LandscapeLibrary(
+    state: LibraryUiState,
+    onAlbum: (String) -> Unit,
+    onTrack: (Long) -> Unit,
+    onSearch: () -> Unit,
+    onFavorites: () -> Unit,
+    onArtists: () -> Unit,
+    onShuffleAll: () -> Unit,
+    onSettings: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 8.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+    ) {
+        LibraryHeader(
+            onSettings = onSettings,
+            onSearch = onSearch,
+            stacked = false,
+            titleStyle = MaterialTheme.typography.headlineLarge,
+            height = 52.dp,
+            searchHeight = 52.dp,
+            searchIcon = 24.dp,
+            searchPadding = 18.dp,
+            searchGap = 14.dp,
+        )
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(top = 4.dp),
+        ) {
+            item { SectionTitle("Jump back in", phoneSection, 8.dp, 8.dp) }
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(state.albums, key = { it.id }) { album ->
+                        AlbumCard(
+                            album = album,
+                            width = 216.dp,
+                            height = 150.dp,
+                            radius = 28.dp,
+                            blobSize = 156.dp,
+                            blobOffset = 44.dp,
+                            contentPadding = 16.dp,
+                            titleStyle = phoneLandscapeCardTitle,
+                            titleMaxWidth = 140.dp,
+                            artistStyle = MaterialTheme.typography.bodyMedium,
+                            playSize = 44.dp,
+                            playIcon = 24.dp,
+                            onClick = { onAlbum(album.id) },
+                        )
+                    }
+                }
+            }
+            item {
+                ShortcutGrid(
+                    onShuffleAll = onShuffleAll,
+                    onFavorites = onFavorites,
+                    onArtists = onArtists,
+                    onFolders = onSettings,
+                    columns = 4,
+                    height = 72.dp,
+                    radius = 26.dp,
+                    blobSize = 46.dp,
+                    iconSize = 22.dp,
+                    labelStyle = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 20.dp),
+                )
+            }
+            if (state.tracks.isNotEmpty()) {
+                item { SectionTitle("Recently added", phoneSection, 24.dp, 6.dp) }
+                items(state.tracks.take(MAX_LIBRARY_TRACKS), key = { "track-${it.id}" }) { track ->
+                    TrackRow(
+                        track = track,
+                        onClick = { onTrack(track.id) },
+                        height = 60.dp,
+                        radius = 22.dp,
+                        startPadding = 4.dp,
+                        endPadding = 12.dp,
+                        leading = {
+                            CoverArt(
+                                artworkUri = track.artworkUri,
+                                seed = track.id,
+                                modifier = Modifier.size(44.dp),
+                            )
+                        },
+                        trailing = {
+                            DurationText(track.durationMs, MaterialTheme.typography.bodyMedium)
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PortraitLibrary(
+    state: LibraryUiState,
+    onAlbum: (String) -> Unit,
+    onTrack: (Long) -> Unit,
+    onSearch: () -> Unit,
+    onFavorites: () -> Unit,
+    onArtists: () -> Unit,
+    onShuffleAll: () -> Unit,
+    onSettings: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 8.dp, end = 24.dp, top = 32.dp, bottom = 24.dp),
+    ) {
+        LibraryHeader(
+            onSettings = onSettings,
+            onSearch = onSearch,
+            stacked = false,
+            titleStyle = MaterialTheme.typography.displayLarge,
+            height = 64.dp,
+            searchHeight = 60.dp,
+            searchIcon = 26.dp,
+            searchPadding = 22.dp,
+            searchGap = 14.dp,
+            searchText = MaterialTheme.typography.bodyLarge,
+        )
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(top = 20.dp),
+        ) {
+            item { SectionTitle("Jump back in", tabletSection, 0.dp, 12.dp) }
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    items(state.albums, key = { it.id }) { album ->
+                        AlbumCard(
+                            album = album,
+                            width = 300.dp,
+                            height = 330.dp,
+                            radius = 40.dp,
+                            blobSize = 320.dp,
+                            blobOffset = 70.dp,
+                            contentPadding = 28.dp,
+                            titleStyle = portraitTableCellTitle,
+                            titleMaxWidth = 220.dp,
+                            artistStyle = MaterialTheme.typography.titleMedium,
+                            playSize = 60.dp,
+                            playIcon = 32.dp,
+                            onClick = { onAlbum(album.id) },
+                        )
+                    }
+                }
+            }
+            item { SectionTitle("Browse", tabletSection, 32.dp, 12.dp) }
+            item {
+                ShortcutGrid(
+                    onShuffleAll = onShuffleAll,
+                    onFavorites = onFavorites,
+                    onArtists = onArtists,
+                    onFolders = onSettings,
+                    columns = 2,
+                    height = 88.dp,
+                    radius = 32.dp,
+                    blobSize = 56.dp,
+                    iconSize = 26.dp,
+                    labelStyle = tabletLabel,
+                )
+            }
+            if (state.tracks.isNotEmpty()) {
+                item { SectionTitle("Recently added", tabletSection, 32.dp, 8.dp) }
+                items(state.tracks.take(MAX_LIBRARY_TRACKS), key = { "track-${it.id}" }) { track ->
+                    TrackRow(
+                        track = track,
+                        onClick = { onTrack(track.id) },
+                        height = 72.dp,
+                        radius = 28.dp,
+                        startPadding = 8.dp,
+                        endPadding = 16.dp,
+                        gap = 16.dp,
+                        titleStyle = MaterialTheme.typography.titleMedium,
+                        leading = {
+                            CoverArt(
+                                artworkUri = track.artworkUri,
+                                seed = track.id,
+                                modifier = Modifier.size(54.dp),
+                            )
+                        },
+                        trailing = {
+                            DurationText(track.durationMs, MaterialTheme.typography.labelLarge)
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedLibrary(
+    state: LibraryUiState,
+    onAlbum: (String) -> Unit,
+    onTrack: (Long) -> Unit,
+    onSearch: () -> Unit,
+    onFavorites: () -> Unit,
+    onArtists: () -> Unit,
+    onShuffleAll: () -> Unit,
+    onSettings: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 8.dp, end = 32.dp, top = 28.dp, bottom = 24.dp),
+    ) {
+        LibraryHeader(
+            onSettings = onSettings,
+            onSearch = onSearch,
+            stacked = false,
+            titleStyle = MaterialTheme.typography.displayLarge,
+            height = 64.dp,
+            searchHeight = 60.dp,
+            searchIcon = 26.dp,
+            searchPadding = 24.dp,
+            searchGap = 16.dp,
+            searchWidth = 520.dp,
+            searchText = MaterialTheme.typography.bodyLarge,
+        )
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(top = 16.dp),
+        ) {
+            item { SectionTitle("Jump back in", tabletSection, 0.dp, 12.dp) }
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    items(state.albums, key = { it.id }) { album ->
+                        AlbumCard(
+                            album = album,
+                            width = 300.dp,
+                            height = 236.dp,
+                            radius = 36.dp,
+                            blobSize = 250.dp,
+                            blobOffset = 64.dp,
+                            contentPadding = 24.dp,
+                            titleStyle = tabletCardTitle,
+                            titleMaxWidth = 200.dp,
+                            artistStyle = MaterialTheme.typography.bodyLarge,
+                            playSize = 56.dp,
+                            playIcon = 30.dp,
+                            onClick = { onAlbum(album.id) },
+                        )
+                    }
+                }
+            }
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 28.dp, bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(40.dp),
+                ) {
+                    Column(modifier = Modifier.width(456.dp)) {
+                        SectionTitle("Browse", tabletSection, 0.dp, 12.dp)
+                        ShortcutGrid(
+                            onShuffleAll = onShuffleAll,
+                            onFavorites = onFavorites,
+                            onArtists = {},
+                            onFolders = onSettings,
+                            columns = 2,
+                            height = 88.dp,
+                            radius = 32.dp,
+                            blobSize = 56.dp,
+                            iconSize = 26.dp,
+                            labelStyle = tabletLabel,
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        SectionTitle("Recently added", tabletSection, 0.dp, 8.dp)
+                        state.tracks.take(MAX_RECENT_TRACKS).forEach { track ->
+                            TrackRow(
+                                track = track,
+                                onClick = { onTrack(track.id) },
+                                height = 68.dp,
+                                radius = 26.dp,
+                                startPadding = 8.dp,
+                                endPadding = 16.dp,
+                                gap = 16.dp,
+                                titleStyle = tabletRowTitle,
+                                leading = {
+                                    CoverArt(
+                                        artworkUri = track.artworkUri,
+                                        seed = track.id,
+                                        modifier = Modifier.size(50.dp),
+                                    )
+                                },
+                                trailing = {
+                                    DurationText(track.durationMs, MaterialTheme.typography.labelLarge)
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val tabletSection = TextStyle(
+    fontSize = 24.sp,
+    lineHeight = 32.sp,
+    fontWeight = FontWeight(650),
+)
+
+@Composable
+private fun LibraryHeader(
+    onSettings: () -> Unit,
+    onSearch: () -> Unit,
+    stacked: Boolean,
+    titleStyle: TextStyle,
+    height: Dp = 56.dp,
+    searchHeight: Dp = 56.dp,
+    searchIcon: Dp = 24.dp,
+    searchPadding: Dp = 20.dp,
+    searchGap: Dp = 16.dp,
+    searchWidth: Dp? = null,
+    searchText: TextStyle = MaterialTheme.typography.bodyLarge,
+) {
+    val more: @Composable () -> Unit = {
+        IconButton(onClick = onSettings) {
+            Icon(
+                painter = painterResource(R.drawable.ic_more_vert),
+                contentDescription = "More options",
+            )
+        }
+    }
+    val searchModifier = if (stacked) {
+        Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+    } else if (searchWidth != null) {
+        Modifier.width(searchWidth)
+    } else {
+        Modifier
+    }
+
+    if (stacked) {
+        Column {
+            BitstreamLargeHeader(title = "Library", style = titleStyle, height = height) { more() }
+            BitstreamSearchPill(
+                text = "Search your music",
+                painter = painterResource(R.drawable.ic_search),
+                onClick = onSearch,
+                modifier = searchModifier,
+                height = searchHeight,
+                iconSize = searchIcon,
+                contentPadding = searchPadding,
+                gap = searchGap,
+                textStyle = searchText,
+            )
+        }
+    } else {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(height),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(if (searchWidth != null) 32.dp else 16.dp),
+        ) {
+            Text(
+                text = "Library",
+                style = titleStyle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            BitstreamSearchPill(
+                text = "Search your music",
+                painter = painterResource(R.drawable.ic_search),
+                onClick = onSearch,
+                modifier = if (searchWidth == null) Modifier.weight(1f) else searchModifier,
+                height = searchHeight,
+                iconSize = searchIcon,
+                contentPadding = searchPadding,
+                gap = searchGap,
+                textStyle = searchText,
+            )
+            if (searchWidth != null) {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            more()
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(title: String, style: TextStyle, top: Dp, bottom: Dp) {
+    Text(
+        text = title,
+        style = style,
+        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = top, bottom = bottom),
+    )
+}
+
+@Composable
+private fun ScanningRow() {
+    Row(
+        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+        Text("Scanning library…", style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun ShortcutGrid(
+    onShuffleAll: () -> Unit,
+    onFavorites: () -> Unit,
+    onArtists: () -> Unit,
+    onFolders: () -> Unit,
+    columns: Int,
+    height: Dp,
+    radius: Dp,
+    blobSize: Dp,
+    iconSize: Dp,
+    labelStyle: TextStyle,
+    modifier: Modifier = Modifier,
+) {
+    val actions = mapOf(
+        LibraryAction.Shuffle to onShuffleAll,
+        LibraryAction.Favorites to onFavorites,
+        LibraryAction.Artists to onArtists,
+        LibraryAction.Folders to onFolders,
+    )
+    val painters = mapOf(
+        LibraryAction.Shuffle to R.drawable.ic_shuffle,
+        LibraryAction.Favorites to R.drawable.ic_favorite,
+        LibraryAction.Artists to R.drawable.ic_person,
+        LibraryAction.Folders to R.drawable.ic_folder,
+    )
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(if (columns == 2) 10.dp else 10.dp),
+    ) {
+        shortcuts.chunked(columns).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                row.forEach { (label, action, sides) ->
+                    BitstreamTile(
+                        label = label,
+                        painter = painterResource(painters.getValue(action)),
+                        onClick = actions.getValue(action),
+                        modifier = Modifier.weight(1f),
+                        sides = sides,
+                        height = height,
+                        radius = radius,
+                        blobSize = blobSize,
+                        iconSize = iconSize,
+                        labelStyle = labelStyle,
+                    )
+                }
+                repeat(columns - row.size) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AlbumCard(
+    album: Album,
+    width: Dp,
+    height: Dp,
+    radius: Dp,
+    blobSize: Dp,
+    blobOffset: Dp,
+    contentPadding: Dp,
+    titleStyle: TextStyle,
+    artistStyle: TextStyle,
+    playSize: Dp,
+    playIcon: Dp,
+    onClick: () -> Unit,
+    titleMaxWidth: Dp? = null,
+) {
+    val hue = album.hue()
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val palette = remember(hue, dark) { trackPalette(hue, dark) }
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(width = width, height = height),
+        shape = RoundedCornerShape(radius),
+        color = Color(palette.primaryContainer),
+        contentColor = Color(palette.onPrimaryContainer),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(radius)),
+        ) {
+            GeneratedCoverArt(
+                hue = hue,
+                seed = album.artSeed(),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .offset(x = blobOffset, y = blobOffset)
+                    .size(blobSize),
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(contentPadding),
+            ) {
+                val titleModifier = if (titleMaxWidth != null) {
+                    Modifier.widthIn(max = titleMaxWidth)
+                } else {
+                    Modifier
+                }
+                Text(
+                    text = album.title,
+                    style = titleStyle,
+                    modifier = titleModifier,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = album.albumArtist,
+                    style = artistStyle,
+                    modifier = titleModifier,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(contentPadding)
+                    .size(playSize),
+                shape = CircleShape,
+                color = Color(palette.onPrimaryContainer),
+                contentColor = Color(palette.primaryContainer),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_play),
+                        contentDescription = null,
+                        modifier = Modifier.size(playIcon),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DurationText(durationMs: Long, style: TextStyle) {
+    val duration = formatPlaybackTime(durationMs)
+    if (duration.isNotBlank()) {
+        Text(duration, style = style, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ArtistsSheet(
+    visible: Boolean,
+    state: LibraryUiState,
+    onArtist: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (!visible) return
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        LazyColumn(modifier = Modifier.fillMaxWidth()) {
+            items(state.artists, key = { it.id }) { artist ->
+                ListItem(
+                    headlineContent = {
+                        Text(
+                            text = artist.name,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    },
+                    modifier = Modifier.clickable {
+                        onDismiss()
+                        onArtist(artist.id)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyLibrary(onPickFolder: () -> Unit, onSettings: () -> Unit) {
     Column(modifier = Modifier.fillMaxSize()) {
         BitstreamLargeHeader(title = "Library") {
             IconButton(onClick = onSettings) {
@@ -196,193 +950,6 @@ fun LibraryScreen(
                 )
             }
         }
-        if (state.empty && !state.isScanning) {
-            EmptyLibrary(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f),
-                onPickFolder = onPickFolder,
-            )
-        } else {
-            LibraryContent(
-                state = state,
-                onAlbum = onAlbum,
-                onTrack = onTrack,
-                onArtist = onArtist,
-                onSearch = onSearch,
-                onFavorites = onFavorites,
-                onShuffleAll = onShuffleAll,
-                onSettings = onSettings,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .weight(1f),
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun LibraryContent(
-    state: LibraryUiState,
-    onAlbum: (String) -> Unit,
-    onTrack: (Long) -> Unit,
-    onArtist: (String) -> Unit,
-    onSearch: () -> Unit,
-    onFavorites: () -> Unit,
-    onShuffleAll: () -> Unit,
-    onSettings: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var showArtists by remember { mutableStateOf(false) }
-
-    LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(
-            start = Spacing.xxl,
-            end = Spacing.xxl,
-            top = Spacing.md,
-            bottom = Spacing.xxxl,
-        ),
-        verticalArrangement = Arrangement.spacedBy(Spacing.md),
-    ) {
-        item {
-            BitstreamSearchPill(
-                text = "Search your music",
-                painter = painterResource(R.drawable.ic_search),
-                onClick = onSearch,
-            )
-        }
-
-        if (state.isScanning) {
-            item {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Spacing.md),
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    Text("Scanning library…", style = MaterialTheme.typography.bodyMedium)
-                }
-            }
-        }
-
-        if (state.albums.isNotEmpty()) {
-            item {
-                BitstreamSectionHeader(
-                    title = "Jump back in",
-                    modifier = Modifier.padding(top = Spacing.md),
-                )
-            }
-            item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    items(state.albums, key = { it.id }) { album ->
-                        AlbumCard(
-                            album = album,
-                            onClick = { onAlbum(album.id) },
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    BitstreamTile(
-                        label = "Shuffle all",
-                        painter = painterResource(R.drawable.ic_shuffle),
-                        onClick = onShuffleAll,
-                        modifier = Modifier.weight(1f),
-                    )
-                    BitstreamTile(
-                        label = "Favorites",
-                        painter = painterResource(R.drawable.ic_favorite),
-                        onClick = onFavorites,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.md)) {
-                    BitstreamTile(
-                        label = "Artists",
-                        painter = painterResource(R.drawable.ic_person),
-                        onClick = { showArtists = true },
-                        modifier = Modifier.weight(1f),
-                    )
-                    BitstreamTile(
-                        label = "Folders",
-                        painter = painterResource(R.drawable.ic_folder),
-                        onClick = onSettings,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-
-        if (state.tracks.isNotEmpty()) {
-            item {
-                BitstreamSectionHeader(
-                    title = "Recently added",
-                    modifier = Modifier.padding(top = Spacing.md),
-                )
-            }
-            items(
-                items = state.tracks.take(MAX_LIBRARY_TRACKS),
-                key = { "track-${it.id}" },
-            ) { track ->
-                TrackRow(
-                    track = track,
-                    onClick = { onTrack(track.id) },
-                    leading = {
-                        CoverArt(
-                            artworkUri = track.artworkUri,
-                            seed = track.id,
-                            modifier = Modifier.size(46.dp),
-                        )
-                    },
-                    trailing = {
-                        val duration = formatPlaybackTime(track.durationMs)
-                        if (duration.isNotBlank()) {
-                            Text(duration, style = MaterialTheme.typography.labelMedium)
-                        }
-                    },
-                )
-            }
-        }
-    }
-
-    if (showArtists) {
-        ModalBottomSheet(onDismissRequest = { showArtists = false }) {
-            LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                items(state.artists, key = { it.id }) { artist ->
-                    ListItem(
-                        headlineContent = {
-                            Text(
-                                text = artist.name,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        },
-                        modifier = Modifier.clickable {
-                            showArtists = false
-                            onArtist(artist.id)
-                        },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyLibrary(
-    onPickFolder: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.padding(Spacing.xxxl),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
         BitstreamEmptyState(
             title = "Your library is empty",
             message = "Choose a folder of FLAC files. Bitstream reads the metadata only and never " +
@@ -397,60 +964,10 @@ private fun EmptyLibrary(
             },
             actionLabel = "Choose folder",
             onAction = onPickFolder,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
         )
-    }
-}
-
-@Composable
-private fun AlbumCard(album: Album, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.size(width = 236.dp, height = 272.dp),
-        shape = RoundedCornerShape(Radii.hero),
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-    ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            CoverArt(
-                artworkUri = album.artworkUri,
-                seed = album.id.hashCode().toLong(),
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .size(250.dp),
-            )
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(Spacing.lg),
-            ) {
-                Text(
-                    text = album.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = album.albumArtist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Surface(
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(52.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_play),
-                            contentDescription = null,
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -467,53 +984,59 @@ fun AlbumArtwork(uri: String?, modifier: Modifier = Modifier) {
 fun TrackRow(
     track: Track,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
     leading: (@Composable () -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
+    height: Dp = 64.dp,
+    radius: Dp = 24.dp,
+    startPadding: Dp = 12.dp,
+    endPadding: Dp = 12.dp,
+    gap: Dp = 14.dp,
+    titleStyle: TextStyle = MaterialTheme.typography.titleMedium,
 ) {
-    ListItem(
-        modifier = Modifier
+    Row(
+        modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .clip(RoundedCornerShape(Radii.tile))
-            .clickable(onClick = onClick),
-        leadingContent = leading,
-        content = {
+            .height(height)
+            .clip(RoundedCornerShape(radius))
+            .clickable(onClick = onClick)
+            .padding(start = startPadding, end = endPadding),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(gap),
+    ) {
+        leading?.invoke()
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = track.title,
+                style = titleStyle,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-        },
-        supportingContent = {
-            val subtitle = listOf(track.artist, track.album)
-                .filter { it.isNotBlank() }
-                .joinToString(" · ")
+            val subtitle = track.artist.ifBlank { track.album }
             if (subtitle.isNotBlank()) {
-                Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
-        },
-        trailingContent = {
-            if (trailing != null) {
-                trailing()
-            } else {
-                val format = formatRateDepth(track.bitDepth, track.sampleRate)
-                if (format.isNotBlank()) {
-                    Text(format, style = MaterialTheme.typography.labelMedium)
-                }
+        }
+        if (trailing != null) {
+            trailing()
+        } else {
+            val format = formatRateDepth(track.bitDepth, track.sampleRate)
+            if (format.isNotBlank()) {
+                Text(
+                    text = format,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
-        },
-    )
-}
-
-@Composable
-private fun DetailPlaceholder() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(
-            text = "Select an album",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        }
     }
 }
 
 private const val MAX_LIBRARY_TRACKS = 100
+private const val MAX_RECENT_TRACKS = 8
