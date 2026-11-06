@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberSliderState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,10 +58,14 @@ fun WaveformSeek(
     contentDescription: String = "Playback position",
 ) {
     val range = durationMs.coerceAtLeast(1L).toFloat()
-    val sliderState = rememberSliderState(
-        value = positionMs.toFloat().coerceIn(0f, range),
-        trackRange = 0f..range,
-    )
+    // Re-key the slider on duration: rememberSliderState captures its track range
+    // on first composition, so a track change would otherwise keep the old length.
+    val sliderState = key(durationMs) {
+        rememberSliderState(
+            value = positionMs.toFloat().coerceIn(0f, range),
+            trackRange = 0f..range,
+        )
+    }
     LaunchedEffect(positionMs, durationMs, sliderState.isDragging) {
         if (!sliderState.isDragging) {
             sliderState.value = positionMs.toFloat().coerceIn(0f, range)

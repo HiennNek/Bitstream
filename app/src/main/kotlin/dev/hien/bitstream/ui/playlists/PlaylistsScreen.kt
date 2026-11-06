@@ -1,11 +1,14 @@
 package dev.hien.bitstream.ui.playlists
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -74,6 +78,9 @@ fun PlaylistsRoute(onTrack: (Long) -> Unit) {
         initialValue = emptyList(),
     )
     val scope = rememberCoroutineScope()
+    // The detail is ViewModel state rather than a nav destination, so system back
+    // must clear the selection instead of leaving the Playlists tab.
+    BackHandler(enabled = state.selectedId != null) { viewModel.select(null) }
 
     PlaylistsScreen(
         state = state,
@@ -147,6 +154,9 @@ private fun PlaylistList(
     var showCreate by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
+        // The app scaffold already keeps this content above the nav bar and the
+        // mini player; adding the system inset again would double the gap.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = { BitstreamLargeHeader(title = "Playlists") },
         floatingActionButton = {
             FloatingActionButton(onClick = { showCreate = true }) {
@@ -229,14 +239,24 @@ private fun PlaylistDetail(
 
     Column(modifier = Modifier.fillMaxSize()) {
         BitstreamLargeHeader(title = playlist.name) {
-            TextButton(onClick = { showAddTracks = true }) { Text("Add tracks") }
-            TextButton(onClick = { showRename = true }) { Text("Rename") }
-            TextButton(onClick = { showDelete = true }) { Text("Delete") }
             IconButton(onClick = onBack) {
                 Icon(
                     painter = painterResource(R.drawable.ic_arrow_back),
                     contentDescription = "Back",
                 )
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = Spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            TextButton(onClick = { showAddTracks = true }) { Text("Add tracks") }
+            TextButton(onClick = { showRename = true }) { Text("Rename") }
+            TextButton(onClick = { showDelete = true }) {
+                Text("Delete", color = MaterialTheme.colorScheme.error)
             }
         }
 
@@ -361,9 +381,10 @@ private fun PlaylistEntryRow(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 64.dp)
-            .clip(RoundedCornerShape(Radii.tile))
+            // Offset before clip so a dragged row is not cut off by its slot.
             .offset { IntOffset(0, dragY.roundToInt()) }
             .zIndex(if (dragY != 0f) 1f else 0f)
+            .clip(RoundedCornerShape(Radii.tile))
             .clickable(onClick = onPlay),
         leadingContent = { Text("${index + 1}") },
         content = {

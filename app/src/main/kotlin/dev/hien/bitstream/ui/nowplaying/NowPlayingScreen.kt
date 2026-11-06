@@ -145,8 +145,10 @@ fun NowPlayingRoute(
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val layout = when {
             maxWidth >= 840.dp && maxHeight >= 600.dp -> NowPlayingLayout.TabletLandscape
-            maxHeight < 600.dp -> NowPlayingLayout.PhoneLandscape
-            maxWidth < 600.dp -> NowPlayingLayout.PhonePortrait
+            // Side-by-side needs a wide window; a narrow short window would
+            // collapse the info column, so it scrolls in the portrait layout.
+            maxHeight < 600.dp && maxWidth >= maxHeight * 1.8f -> NowPlayingLayout.PhoneLandscape
+            maxWidth < 600.dp || maxHeight < 600.dp -> NowPlayingLayout.PhonePortrait
             else -> NowPlayingLayout.TabletPortrait
         }
 
@@ -190,11 +192,11 @@ fun NowPlayingRoute(
                 )
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainer,
-                    shape = RoundedCornerShape(topStart = 40.dp, topEnd = 40.dp),
+                    shape = RoundedCornerShape(40.dp),
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .padding(start = 24.dp, top = 24.dp, end = 24.dp)
+                        .padding(top = 24.dp, end = 24.dp, bottom = 24.dp)
                         .testTag("now_playing_pane"),
                 ) {
                     player(Modifier.fillMaxSize())
@@ -322,7 +324,6 @@ private fun PhonePortraitPlayer(state: NowPlayingUiState, c: PlayerCallbacks) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
             .testTag("now_playing_stacked"),
     ) {
         NowPlayingHeader(
@@ -770,7 +771,13 @@ private fun UpNextPeek(upNext: List<Track>, onQueue: () -> Unit) {
             .fillMaxWidth()
             .testTag("now_playing_up_next"),
     ) {
-        Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 10.dp, bottom = 16.dp)) {
+        Column(
+            modifier = Modifier
+                .padding(start = 24.dp, end = 24.dp, top = 10.dp, bottom = 16.dp)
+                .windowInsetsPadding(
+                    WindowInsets.navigationBars.only(WindowInsetsSides.Bottom),
+                ),
+        ) {
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Box(
                     modifier = Modifier
@@ -818,6 +825,11 @@ private fun UpNextPeek(upNext: List<Track>, onQueue: () -> Unit) {
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    Text(
+                        text = formatPlaybackTime(next.durationMs),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             } else {
                 Text(
@@ -886,7 +898,7 @@ private fun UpNextPill(upNext: List<Track>, onQueue: () -> Unit) {
 private fun UpNextTablet(upNext: List<Track>, onQueue: () -> Unit) {
     Surface(
         onClick = onQueue,
-        shape = RoundedCornerShape(topStart = 36.dp, topEnd = 36.dp),
+        shape = RoundedCornerShape(36.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier
             .fillMaxWidth()
@@ -992,15 +1004,17 @@ private fun SongsPane(
             contentPadding = PaddingValues(bottom = 24.dp),
         ) {
             items(visible, key = { it.id }) { track ->
+                val isCurrent = track.id == playingId
                 TrackRow(
                     track = track,
                     onClick = { onTrack(track.id) },
                     height = 72.dp,
-                    radius = 24.dp,
+                    radius = if (isCurrent) 32.dp else 24.dp,
                     startPadding = 20.dp,
                     endPadding = 12.dp,
                     gap = 16.dp,
                     titleStyle = MaterialTheme.typography.titleMedium,
+                    selected = isCurrent,
                     leading = {
                         CoverArt(track = track, modifier = Modifier.size(52.dp))
                     },
@@ -1009,13 +1023,17 @@ private fun SongsPane(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            if (track.id == playingId) {
-                                PlayingBars(active = isPlaying)
+                            if (isCurrent) {
+                                PlayingBars(active = isPlaying, selected = true)
                             }
                             Text(
                                 text = formatPlaybackTime(track.durationMs),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = if (isCurrent) {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
                             )
                         }
                     },
@@ -1026,11 +1044,11 @@ private fun SongsPane(
 }
 
 @Composable
-private fun PlayingBars(active: Boolean) {
-    val color = if (active) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
+private fun PlayingBars(active: Boolean, selected: Boolean = false) {
+    val color = when {
+        selected -> MaterialTheme.colorScheme.onPrimaryContainer
+        active -> MaterialTheme.colorScheme.primary
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Canvas(modifier = Modifier.size(width = 16.dp, height = 18.dp)) {
         val barWidth = size.width / 5f
@@ -1331,6 +1349,7 @@ fun MiniPlayerBar(
                 LinearWavyProgressIndicator(
                     progress = { progress },
                     gapSize = 0.dp,
+                    stopSize = 0.dp,
                     color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.secondaryContainer,
                     modifier = progressModifier,
@@ -1440,8 +1459,8 @@ internal fun NowPlayingScreenPreview() {
             BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 val layout = when {
                     maxWidth >= 840.dp && maxHeight >= 600.dp -> NowPlayingLayout.TabletLandscape
-                    maxHeight < 600.dp -> NowPlayingLayout.PhoneLandscape
-                    maxWidth < 600.dp -> NowPlayingLayout.PhonePortrait
+                    maxHeight < 600.dp && maxWidth >= maxHeight * 1.8f -> NowPlayingLayout.PhoneLandscape
+                    maxWidth < 600.dp || maxHeight < 600.dp -> NowPlayingLayout.PhonePortrait
                     else -> NowPlayingLayout.TabletPortrait
                 }
                 NowPlayingContent(

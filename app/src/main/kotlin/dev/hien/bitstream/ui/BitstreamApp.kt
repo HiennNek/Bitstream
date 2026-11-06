@@ -3,6 +3,7 @@ package dev.hien.bitstream.ui
 import android.net.Uri
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
@@ -48,6 +49,7 @@ import dev.hien.bitstream.core.designsystem.detailPopExit
 import dev.hien.bitstream.core.designsystem.fadeThroughEnter
 import dev.hien.bitstream.core.designsystem.fadeThroughExit
 import dev.hien.bitstream.core.designsystem.BitstreamTheme
+import dev.hien.bitstream.core.designsystem.trackHue
 import dev.hien.bitstream.ui.adaptive.AdaptiveNavItem
 import dev.hien.bitstream.ui.adaptive.AdaptiveNavigationScaffold
 import dev.hien.bitstream.ui.components.rememberArtworkHue
@@ -100,7 +102,12 @@ fun BitstreamApp() {
         ThemePreference.LIGHT -> false
         ThemePreference.DARK -> true
     }
-    val albumHue = rememberArtworkHue(nowPlayingState.track?.artworkUri)
+    val artworkHue = rememberArtworkHue(nowPlayingState.track?.artworkUri)
+    // Fall back to the generated cover's hue while artwork decodes, and for
+    // tracks without embedded art, so the theme never flashes to the wallpaper.
+    val albumHue = artworkHue ?: nowPlayingState.track?.let {
+        trackHue(it.albumArtist, it.album, it.artist, it.title)
+    }
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -121,12 +128,19 @@ fun BitstreamApp() {
             label = destination.label,
             selected = selectedIndex == index,
             onClick = {
-                navController.navigate(destination.route) {
-                    popUpTo(navController.graph.startDestinationId) {
-                        saveState = true
+                if (currentRoute != destination.route) {
+                    val isStart = destination.route == navController.graph.startDestinationRoute
+                    navController.navigate(destination.route) {
+                        popUpTo(navController.graph.startDestinationId) {
+                            // The player is a global overlay: never fold it into a
+                            // tab's saved state. The start destination is surfaced
+                            // from the bottom of the stack instead of restored, so a
+                            // stale saved tab stack cannot replay on top of it.
+                            saveState = !isStart && currentRoute != NOW_PLAYING_ROUTE
+                        }
+                        launchSingleTop = true
+                        restoreState = !isStart
                     }
-                    launchSingleTop = true
-                    restoreState = true
                 }
             },
             icon = {
@@ -156,6 +170,7 @@ fun BitstreamApp() {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.surface)
                 .windowInsetsPadding(
                     WindowInsets.safeDrawing.only(
                         WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
@@ -313,8 +328,15 @@ fun BitstreamApp() {
                         targetOffsetY = { it },
                     ) + fadeOut(tween(150)),
                 ) {
+                    // Collect the fast transport flows here so the 100 ms tick
+                    // recomposes only the mini player, not the whole app.
+                    val miniPosition by nowPlayingViewModel.positionMs.collectAsState()
+                    val miniDuration by nowPlayingViewModel.durationMs.collectAsState()
                     MiniPlayerBar(
-                        state = nowPlayingState,
+                        state = nowPlayingState.copy(
+                            position = miniPosition,
+                            duration = miniDuration,
+                        ),
                         onOpenNowPlaying = {
                             navController.navigate(NOW_PLAYING_ROUTE) {
                                 launchSingleTop = true

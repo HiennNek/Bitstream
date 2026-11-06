@@ -5,11 +5,16 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
@@ -62,13 +67,16 @@ fun AdaptiveNavigationScaffold(
     AdaptiveScaffold { _ ->
         BoxWithConstraints(modifier = modifier.fillMaxSize()) {
             val short = maxHeight < 600.dp
-            val chrome = if (short) NavChrome.RAIL else navChromeFor(maxWidth.value.toInt())
-            if (!showNavigation) {
-                Box(modifier = Modifier.fillMaxSize()) { content() }
-                return@BoxWithConstraints
+            val chrome = if (short && maxWidth >= 600.dp) {
+                NavChrome.RAIL
+            } else {
+                navChromeFor(maxWidth.value.toInt())
             }
             when (chrome) {
                 NavChrome.BAR -> {
+                    // Keep content in the same slot whether or not the bar is
+                    // shown; swapping the whole subtree would recreate the NavHost
+                    // and kill its transition when the player opens.
                     Column(modifier = Modifier.fillMaxSize()) {
                         Box(
                             modifier = Modifier
@@ -77,17 +85,19 @@ fun AdaptiveNavigationScaffold(
                         ) {
                             content()
                         }
-                        ShortNavigationBar(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            modifier = Modifier.testTag("navigation_bar"),
-                        ) {
-                            items.forEach { item ->
-                                ShortNavigationBarItem(
-                                    selected = item.selected,
-                                    onClick = item.onClick,
-                                    icon = item.icon,
-                                    label = item.labelContent,
-                                )
+                        if (showNavigation) {
+                            ShortNavigationBar(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                modifier = Modifier.testTag("navigation_bar"),
+                            ) {
+                                items.forEach { item ->
+                                    ShortNavigationBarItem(
+                                        selected = item.selected,
+                                        onClick = item.onClick,
+                                        icon = item.icon,
+                                        label = item.labelContent,
+                                    )
+                                }
                             }
                         }
                     }
@@ -95,31 +105,47 @@ fun AdaptiveNavigationScaffold(
 
                 NavChrome.RAIL -> {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        NavigationRail(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            modifier = Modifier
-                                .width(if (short) 80.dp else 96.dp)
-                                .fillMaxHeight()
-                                .testTag("navigation_rail"),
-                        ) {
-                            Spacer(modifier = Modifier.height(if (short) 12.dp else 40.dp))
-                            items.forEachIndexed { index, item ->
-                                if (index > 0) {
-                                    Spacer(modifier = Modifier.height(if (short) 6.dp else 20.dp))
+                        if (showNavigation) {
+                            NavigationRail(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                modifier = Modifier
+                                    .width(if (short) 80.dp else 96.dp)
+                                    .fillMaxHeight()
+                                    .testTag("navigation_rail"),
+                            ) {
+                                Spacer(modifier = Modifier.height(if (short) 12.dp else 40.dp))
+                                items.forEachIndexed { index, item ->
+                                    if (index > 0) {
+                                        Spacer(modifier = Modifier.height(if (short) 6.dp else 20.dp))
+                                    }
+                                    NavigationRailItem(
+                                        selected = item.selected,
+                                        onClick = item.onClick,
+                                        icon = item.icon,
+                                        label = item.labelContent,
+                                        modifier = Modifier.height(if (short) 64.dp else 68.dp),
+                                    )
                                 }
-                                NavigationRailItem(
-                                    selected = item.selected,
-                                    onClick = item.onClick,
-                                    icon = item.icon,
-                                    label = item.labelContent,
-                                    modifier = Modifier.height(if (short) 64.dp else 68.dp),
-                                )
                             }
                         }
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .fillMaxHeight(),
+                                .fillMaxHeight()
+                                .then(
+                                    // Rail layouts have no bottom bar to consume the
+                                    // system inset; full-screen player layouts handle
+                                    // it themselves when the rail is hidden.
+                                    if (showNavigation) {
+                                        Modifier.windowInsetsPadding(
+                                            WindowInsets.navigationBars.only(
+                                                WindowInsetsSides.Bottom,
+                                            ),
+                                        )
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
                         ) {
                             content()
                         }

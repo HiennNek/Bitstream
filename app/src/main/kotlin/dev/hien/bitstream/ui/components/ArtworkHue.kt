@@ -21,7 +21,9 @@ import kotlinx.coroutines.withContext
 @Composable
 fun rememberArtworkHue(artworkUri: String?): Int? {
     val context = LocalContext.current
-    var hue by remember(artworkUri) { mutableStateOf<Int?>(null) }
+    // Do not reset to null when the URI changes: keep the previous hue until the
+    // new artwork decodes, otherwise every track change flashes the fallback theme.
+    var hue by remember { mutableStateOf<Int?>(null) }
     LaunchedEffect(artworkUri) {
         hue = if (artworkUri.isNullOrBlank()) {
             null

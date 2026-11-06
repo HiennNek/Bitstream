@@ -241,7 +241,9 @@ private fun QueueRow(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(Radii.sm))
+                    // Match the row clip so the error container cannot peek
+                    // through the corners while idle.
+                    .clip(RoundedCornerShape(Radii.tile))
                     .background(MaterialTheme.colorScheme.errorContainer)
                     .padding(horizontal = Spacing.xl),
                 contentAlignment = Alignment.CenterEnd,

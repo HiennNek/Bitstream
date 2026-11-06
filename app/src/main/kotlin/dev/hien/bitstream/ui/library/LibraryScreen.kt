@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,6 +58,7 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -296,6 +298,9 @@ private fun CompactLibrary(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
         ) {
+            if (state.isScanning) {
+                item { ScanningRow(Modifier.padding(horizontal = 24.dp)) }
+            }
             item {
                 LibraryHeader(
                     onSettings = onSettings,
@@ -315,7 +320,6 @@ private fun CompactLibrary(
                         preferredItemWidth = 236.dp,
                         itemSpacing = 12.dp,
                         contentPadding = PaddingValues(horizontal = 24.dp),
-                        width = 236.dp,
                         height = 272.dp,
                         radius = 32.dp,
                         blobSize = 250.dp,
@@ -403,13 +407,15 @@ private fun LandscapeLibrary(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(top = 4.dp),
         ) {
-            item { SectionTitle("Jump back in", phoneSection, 8.dp, 8.dp) }
+            if (state.isScanning) {
+                item { ScanningRow() }
+            }
+            item { SectionTitle("Jump back in", phoneSection, 8.dp, 8.dp, startPadding = 0.dp) }
             item {
                 AlbumCarousel(
                     albums = state.albums,
                     preferredItemWidth = 216.dp,
                     itemSpacing = 12.dp,
-                    width = 216.dp,
                     height = 150.dp,
                     radius = 28.dp,
                     blobSize = 156.dp,
@@ -440,7 +446,7 @@ private fun LandscapeLibrary(
                 )
             }
             if (state.tracks.isNotEmpty()) {
-                item { SectionTitle("Recently added", phoneSection, 24.dp, 6.dp) }
+                item { SectionTitle("Recently added", phoneSection, 24.dp, 6.dp, startPadding = 0.dp) }
                 items(state.tracks.take(MAX_LIBRARY_TRACKS), key = { "track-${it.id}" }) { track ->
                     TrackRow(
                         track = track,
@@ -499,13 +505,15 @@ private fun PortraitLibrary(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(top = 20.dp),
         ) {
-            item { SectionTitle("Jump back in", tabletSection, 0.dp, 12.dp) }
+            if (state.isScanning) {
+                item { ScanningRow() }
+            }
+            item { SectionTitle("Jump back in", tabletSection, 0.dp, 12.dp, startPadding = 0.dp) }
             item {
                 AlbumCarousel(
                     albums = state.albums,
                     preferredItemWidth = 300.dp,
                     itemSpacing = 16.dp,
-                    width = 300.dp,
                     height = 330.dp,
                     radius = 40.dp,
                     blobSize = 320.dp,
@@ -520,7 +528,7 @@ private fun PortraitLibrary(
                     onPlayAlbum = onPlayAlbum,
                 )
             }
-            item { SectionTitle("Browse", tabletSection, 32.dp, 12.dp) }
+            item { SectionTitle("Browse", tabletSection, 32.dp, 12.dp, startPadding = 0.dp) }
             item {
                 ShortcutGrid(
                     onShuffleAll = onShuffleAll,
@@ -536,7 +544,7 @@ private fun PortraitLibrary(
                 )
             }
             if (state.tracks.isNotEmpty()) {
-                item { SectionTitle("Recently added", tabletSection, 32.dp, 8.dp) }
+                item { SectionTitle("Recently added", tabletSection, 32.dp, 8.dp, startPadding = 0.dp) }
                 items(state.tracks.take(MAX_LIBRARY_TRACKS), key = { "track-${it.id}" }) { track ->
                     TrackRow(
                         track = track,
@@ -598,13 +606,15 @@ private fun ExpandedLibrary(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(top = 16.dp),
         ) {
-            item { SectionTitle("Jump back in", tabletSection, 0.dp, 12.dp) }
+            if (state.isScanning) {
+                item { ScanningRow() }
+            }
+            item { SectionTitle("Jump back in", tabletSection, 0.dp, 12.dp, startPadding = 0.dp) }
             item {
                 AlbumCarousel(
                     albums = state.albums,
                     preferredItemWidth = 300.dp,
                     itemSpacing = 16.dp,
-                    width = 300.dp,
                     height = 236.dp,
                     radius = 36.dp,
                     blobSize = 250.dp,
@@ -627,11 +637,11 @@ private fun ExpandedLibrary(
                     horizontalArrangement = Arrangement.spacedBy(40.dp),
                 ) {
                     Column(modifier = Modifier.width(456.dp)) {
-                        SectionTitle("Browse", tabletSection, 0.dp, 12.dp)
+                        SectionTitle("Browse", tabletSection, 0.dp, 12.dp, startPadding = 0.dp)
                         ShortcutGrid(
                             onShuffleAll = onShuffleAll,
                             onFavorites = onFavorites,
-                            onArtists = {},
+                            onArtists = onArtists,
                             onFolders = onSettings,
                             columns = 2,
                             height = 88.dp,
@@ -642,7 +652,7 @@ private fun ExpandedLibrary(
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
-                        SectionTitle("Recently added", tabletSection, 0.dp, 8.dp)
+                        SectionTitle("Recently added", tabletSection, 0.dp, 8.dp, startPadding = 0.dp)
                         state.tracks.take(MAX_RECENT_TRACKS).forEach { track ->
                             TrackRow(
                                 track = track,
@@ -757,18 +767,24 @@ private fun LibraryHeader(
 }
 
 @Composable
-private fun SectionTitle(title: String, style: TextStyle, top: Dp, bottom: Dp) {
+private fun SectionTitle(
+    title: String,
+    style: TextStyle,
+    top: Dp,
+    bottom: Dp,
+    startPadding: Dp = 24.dp,
+) {
     Text(
         text = title,
         style = style,
-        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = top, bottom = bottom),
+        modifier = Modifier.padding(start = startPadding, end = 24.dp, top = top, bottom = bottom),
     )
 }
 
 @Composable
-private fun ScanningRow() {
+private fun ScanningRow(modifier: Modifier = Modifier) {
     Row(
-        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+        modifier = modifier.padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -834,12 +850,12 @@ private fun ShortcutGrid(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AlbumCarousel(
     albums: List<Album>,
     preferredItemWidth: Dp,
     itemSpacing: Dp,
-    width: Dp,
     height: Dp,
     radius: Dp,
     blobSize: Dp,
@@ -865,7 +881,6 @@ private fun AlbumCarousel(
         val album = albums[index]
         AlbumCard(
             album = album,
-            width = width,
             height = height,
             radius = radius,
             blobSize = blobSize,
@@ -878,6 +893,7 @@ private fun AlbumCarousel(
             playIcon = playIcon,
             onClick = { onAlbum(album.id) },
             onPlay = { onPlayAlbum(album.id) },
+            maskModifier = { Modifier.maskClip(RoundedCornerShape(radius)) },
         )
     }
 }
@@ -885,7 +901,6 @@ private fun AlbumCarousel(
 @Composable
 private fun AlbumCard(
     album: Album,
-    width: Dp,
     height: Dp,
     radius: Dp,
     blobSize: Dp,
@@ -898,13 +913,20 @@ private fun AlbumCard(
     onClick: () -> Unit,
     onPlay: () -> Unit,
     titleMaxWidth: Dp? = null,
+    // Built by the caller inside CarouselItemScope so the card carries the
+    // carousel's rounded compression mask; identity elsewhere.
+    maskModifier: @Composable () -> Modifier = { Modifier },
 ) {
     val hue = album.hue()
     val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val palette = remember(hue, dark) { trackPalette(hue, dark) }
     Surface(
         onClick = onClick,
-        modifier = Modifier.size(width = width, height = height),
+        // Fill the slot: the multi-browse carousel compresses peeking items, and
+        // maskModifier keeps their clipped edges rounded instead of straight.
+        modifier = Modifier
+            .then(maskModifier())
+            .fillMaxSize(),
         shape = RoundedCornerShape(radius),
         color = Color(palette.primaryContainer),
         contentColor = Color(palette.onPrimaryContainer),
@@ -1145,12 +1167,36 @@ fun TrackRow(
     endPadding: Dp = 12.dp,
     gap: Dp = 14.dp,
     titleStyle: TextStyle = MaterialTheme.typography.titleMedium,
+    selected: Boolean = false,
 ) {
+    val containerColor = if (selected) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        Color.Transparent
+    }
+    val contentColor = if (selected) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurface
+    }
+    val secondaryColor = if (selected) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(height)
             .clip(RoundedCornerShape(radius))
+            .background(containerColor)
+            .then(
+                if (selected) {
+                    Modifier.semantics { this.selected = true }
+                } else {
+                    Modifier
+                },
+            )
             .clickable(onClick = onClick)
             .padding(start = startPadding, end = endPadding),
         verticalAlignment = Alignment.CenterVertically,
@@ -1161,6 +1207,7 @@ fun TrackRow(
             Text(
                 text = track.title,
                 style = titleStyle,
+                color = contentColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1169,7 +1216,7 @@ fun TrackRow(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = secondaryColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1183,7 +1230,7 @@ fun TrackRow(
                 Text(
                     text = format,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = secondaryColor,
                 )
             }
         }

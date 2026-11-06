@@ -18,6 +18,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+private val tealLight = trackPalette(hue = 180, dark = false)
+private val tealDark = trackPalette(hue = 180, dark = true)
+
 private val DeepTealLight = lightColorScheme(
     primary = Color(0xFF006A6A),
     onPrimary = Color(0xFFFFFFFF),
@@ -35,6 +38,15 @@ private val DeepTealLight = lightColorScheme(
     onBackground = Color(0xFF191C1C),
     surface = Color(0xFFFAFDFC),
     onSurface = Color(0xFF191C1C),
+    // Without these the container roles fall back to Material's purple baseline.
+    surfaceVariant = Color(tealLight.surfaceContainerHigh),
+    surfaceContainerLowest = Color(tealLight.surface),
+    surfaceContainerLow = Color(tealLight.surfaceContainer),
+    surfaceContainer = Color(tealLight.surfaceContainer),
+    surfaceContainerHigh = Color(tealLight.surfaceContainerHigh),
+    surfaceContainerHighest = Color(tealLight.surfaceContainerHighest),
+    outline = Color(tealLight.onSurfaceVariant),
+    outlineVariant = Color(tealLight.outlineVariant),
 )
 
 private val DeepTealDark = darkColorScheme(
@@ -54,6 +66,14 @@ private val DeepTealDark = darkColorScheme(
     onBackground = Color(0xFFE0E3E2),
     surface = Color(0xFF191C1C),
     onSurface = Color(0xFFE0E3E2),
+    surfaceVariant = Color(tealDark.surfaceContainerHigh),
+    surfaceContainerLowest = Color(tealDark.surface),
+    surfaceContainerLow = Color(tealDark.surfaceContainer),
+    surfaceContainer = Color(tealDark.surfaceContainer),
+    surfaceContainerHigh = Color(tealDark.surfaceContainerHigh),
+    surfaceContainerHighest = Color(tealDark.surfaceContainerHighest),
+    outline = Color(tealDark.onSurfaceVariant),
+    outlineVariant = Color(tealDark.outlineVariant),
 )
 
 /**
@@ -117,6 +137,7 @@ private fun TrackPalette.toColorScheme(dark: Boolean): ColorScheme {
         onSurface = Color(onSurface),
         surfaceVariant = Color(surfaceContainerHigh),
         onSurfaceVariant = Color(onSurfaceVariant),
+        surfaceContainerLowest = Color(surface),
         surfaceContainer = Color(surfaceContainer),
         surfaceContainerLow = Color(surfaceContainer),
         surfaceContainerHigh = Color(surfaceContainerHigh),
@@ -164,6 +185,17 @@ private fun rememberAnimatedColorScheme(target: ColorScheme): ColorScheme {
         ).value,
         surface = animateColorAsState(target.surface, spec, label = "surface").value,
         onSurface = animateColorAsState(target.onSurface, spec, label = "onSurface").value,
+        background = animateColorAsState(target.background, spec, label = "background").value,
+        onBackground = animateColorAsState(
+            target.onBackground,
+            spec,
+            label = "onBackground",
+        ).value,
+        surfaceVariant = animateColorAsState(
+            target.surfaceVariant,
+            spec,
+            label = "surfaceVariant",
+        ).value,
         surfaceContainerLow = animateColorAsState(
             target.surfaceContainerLow,
             spec,
