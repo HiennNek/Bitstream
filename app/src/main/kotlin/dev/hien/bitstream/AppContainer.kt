@@ -44,6 +44,7 @@ class AppContainer(context: Context) {
         albumDao = database.albumDao(),
         artistDao = database.artistDao(),
         favoriteDao = database.favoriteDao(),
+        playHistoryDao = database.playHistoryDao(),
     )
 
     val playlistStore: PlaylistStore = RoomPlaylistStore(database.playlistDao())
@@ -147,6 +148,21 @@ class AppContainer(context: Context) {
                             status == PlaybackStatus.READY
                         ) {
                             PlaybackService.ensureStarted(appContext)
+                        }
+                    }
+            }
+            appScope.launch {
+                // "Jump back in": record each track the engine actually starts.
+                // Restore also refreshes the last-played track, which was the
+                // most recent anyway, so the ordering is unaffected.
+                engine.state
+                    .map { it.track?.id }
+                    .distinctUntilChanged()
+                    .collect { trackId ->
+                        if (trackId != null) {
+                            // A rescan can delete the track row mid-play; don't
+                            // crash on the foreign key.
+                            runCatching { musicRepository.recordPlay(trackId) }
                         }
                     }
             }

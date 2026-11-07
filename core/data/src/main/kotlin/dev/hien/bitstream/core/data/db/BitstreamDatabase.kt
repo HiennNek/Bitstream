@@ -15,9 +15,10 @@ import androidx.room.RoomDatabase
         PlaylistEntryEntity::class,
         ScanFolderEntity::class,
         FavoriteEntity::class,
+        PlayHistoryEntity::class,
         PlaybackStateEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class BitstreamDatabase : RoomDatabase() {
@@ -27,6 +28,7 @@ abstract class BitstreamDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
     abstract fun scanFolderDao(): ScanFolderDao
     abstract fun favoriteDao(): FavoriteDao
+    abstract fun playHistoryDao(): PlayHistoryDao
     abstract fun playbackStateDao(): PlaybackStateDao
 
     companion object {
@@ -41,7 +43,7 @@ abstract class BitstreamDatabase : RoomDatabase() {
                     context.applicationContext,
                     BitstreamDatabase::class.java,
                     NAME,
-                ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build().also { instance = it }
             }
     }
 }

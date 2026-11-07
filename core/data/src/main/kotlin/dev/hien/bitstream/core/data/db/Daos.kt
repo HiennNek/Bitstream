@@ -230,6 +230,25 @@ interface FavoriteDao {
 }
 
 @Dao
+interface PlayHistoryDao {
+    @Query(
+        """
+        SELECT tracks.* FROM play_history
+        INNER JOIN tracks ON tracks.id = play_history.track_id
+        ORDER BY play_history.played_at DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeTracks(limit: Int): Flow<List<TrackEntity>>
+
+    @Query("INSERT OR REPLACE INTO play_history (track_id, played_at) VALUES (:trackId, :playedAt)")
+    suspend fun record(trackId: Long, playedAt: Long)
+
+    @Query("SELECT track_id FROM play_history ORDER BY played_at DESC")
+    suspend fun allIds(): List<Long>
+}
+
+@Dao
 interface ScanFolderDao {
     @Query("SELECT * FROM scan_folders ORDER BY display_name COLLATE NOCASE")
     fun observeFolders(): Flow<List<ScanFolderEntity>>

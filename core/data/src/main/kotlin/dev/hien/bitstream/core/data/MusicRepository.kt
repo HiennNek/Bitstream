@@ -5,6 +5,7 @@ import dev.hien.bitstream.core.data.db.AlbumEntity
 import dev.hien.bitstream.core.data.db.ArtistDao
 import dev.hien.bitstream.core.data.db.ArtistEntity
 import dev.hien.bitstream.core.data.db.FavoriteDao
+import dev.hien.bitstream.core.data.db.PlayHistoryDao
 import dev.hien.bitstream.core.data.db.TrackDao
 import dev.hien.bitstream.core.data.db.TrackEntity
 import dev.hien.bitstream.core.model.Album
@@ -23,11 +24,16 @@ interface MusicRepository {
     val favoriteTracks: Flow<List<Track>>
     val favoriteIds: Flow<Set<Long>>
 
+    /** Most recently played tracks, newest first, including the current one. */
+    val recentTracks: Flow<List<Track>>
+
     fun search(query: String): Flow<List<Track>>
 
     suspend fun tracksByIds(ids: List<Long>): List<Track>
 
     suspend fun setFavorite(trackId: Long, favorite: Boolean)
+
+    suspend fun recordPlay(trackId: Long)
 
     /** Rebuild the derived album and artist tables after a scan or an incremental update. */
     suspend fun rebuildDerived()
@@ -38,6 +44,7 @@ class RoomMusicRepository(
     private val albumDao: AlbumDao,
     private val artistDao: ArtistDao,
     private val favoriteDao: FavoriteDao,
+    private val playHistoryDao: PlayHistoryDao,
 ) : MusicRepository {
     // Room emits on its query executor but the entity -> model mapping runs in
     // the collector's context, which is the main thread for the library
@@ -63,11 +70,18 @@ class RoomMusicRepository(
     override val favoriteIds: Flow<Set<Long>> =
         favoriteDao.observeIds().map { it.toSet() }
 
+    override val recentTracks: Flow<List<Track>> =
+        playHistoryDao.observeTracks(MAX_RECENT_TRACKS).map { entities -> entities.map { it.toModel() } }
+
     override suspend fun tracksByIds(ids: List<Long>): List<Track> =
         trackDao.tracksByIds(ids).map { it.toModel() }
 
     override suspend fun setFavorite(trackId: Long, favorite: Boolean) {
         favoriteDao.set(trackId, favorite)
+    }
+
+    override suspend fun recordPlay(trackId: Long) {
+        playHistoryDao.record(trackId, System.currentTimeMillis())
     }
 
     override suspend fun rebuildDerived() {
@@ -137,3 +151,5 @@ fun ArtistEntity.toModel(): Artist = Artist(
     trackCount = trackCount,
     artworkUri = artKey,
 )
+
+private const val MAX_RECENT_TRACKS = 20

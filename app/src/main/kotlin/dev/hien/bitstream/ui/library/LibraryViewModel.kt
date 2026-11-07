@@ -19,6 +19,7 @@ data class LibraryUiState(
     val albums: List<Album> = emptyList(),
     val artists: List<Artist> = emptyList(),
     val tracks: List<Track> = emptyList(),
+    val recentTracks: List<Track> = emptyList(),
     val isScanning: Boolean = false,
 ) {
     val empty: Boolean
@@ -33,8 +34,9 @@ class LibraryViewModel(
         repository.albums,
         repository.artists,
         repository.tracks,
+        repository.recentTracks,
         scanning,
-    ) { albums, artists, tracks, isScanning ->
+    ) { albums, artists, tracks, recentTracks, isScanning ->
         LibraryUiState(
             albums = albums.sortedWith(
                 compareBy<Album>(
@@ -51,6 +53,8 @@ class LibraryViewModel(
                     { it.title.lowercase() },
                 ),
             ),
+            // Already newest-first from the play_history query.
+            recentTracks = recentTracks,
             isScanning = isScanning,
         )
     }

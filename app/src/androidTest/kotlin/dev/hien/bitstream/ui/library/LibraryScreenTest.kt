@@ -38,12 +38,21 @@ class LibraryScreenTest {
                                 album = "Blue Train",
                             ),
                         ),
+                        recentTracks = listOf(
+                            Track(
+                                id = 1,
+                                uri = "content://test/1.flac",
+                                title = "Moment's Notice",
+                                artist = "Coltrane",
+                                album = "Blue Train",
+                            ),
+                        ),
                     ),
                 )
             }
         }
 
-        composeRule.onNodeWithText("Blue Train").assertIsDisplayed()
+        composeRule.onNodeWithText("Moment's Notice").assertIsDisplayed()
         composeRule.onNodeWithText("Jump back in").assertIsDisplayed()
         composeRule.onNodeWithText("Favorites").assertIsDisplayed()
         composeRule.onNodeWithText("Recently added").assertIsDisplayed()

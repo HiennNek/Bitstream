@@ -65,11 +65,14 @@ private class FakeFavoritesRepository(private val allTracks: List<Track>) : Musi
     override val favoriteTracks: Flow<List<Track>> =
         favoriteIdsFlow.map { ids -> allTracks.filter { it.id in ids } }
     override val favoriteIds: Flow<Set<Long>> = favoriteIdsFlow
+    override val recentTracks: Flow<List<Track>> = flowOf(emptyList())
 
     override fun search(query: String): Flow<List<Track>> = flowOf(emptyList())
 
     override suspend fun tracksByIds(ids: List<Long>): List<Track> =
         allTracks.filter { it.id in ids }
+
+    override suspend fun recordPlay(trackId: Long) = Unit
 
     override suspend fun setFavorite(trackId: Long, favorite: Boolean) {
         favoriteIdsFlow.value = if (favorite) {

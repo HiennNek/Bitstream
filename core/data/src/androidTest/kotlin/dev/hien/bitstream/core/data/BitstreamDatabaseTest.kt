@@ -107,6 +107,23 @@ class BitstreamDatabaseTest {
     }
 
     @Test
+    fun playHistoryReturnsMostRecentFirstAndDeduplicates() = runBlocking {
+        db.trackDao().upsertAll(
+            listOf(
+                track(id = 1, title = "One"),
+                track(id = 2, title = "Two"),
+            ),
+        )
+        db.playHistoryDao().record(1, playedAt = 100)
+        db.playHistoryDao().record(2, playedAt = 200)
+        db.playHistoryDao().record(1, playedAt = 300)
+
+        val recent = db.playHistoryDao().observeTracks(limit = 20).first()
+
+        assertEquals(listOf(1L, 2L), recent.map { it.id })
+    }
+
+    @Test
     fun playbackStateRoundTripsQueueJson() = runBlocking {
         val store = PlaybackStateStore(db.playbackStateDao())
         store.save(

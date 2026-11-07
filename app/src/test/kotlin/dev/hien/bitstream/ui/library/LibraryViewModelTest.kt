@@ -84,12 +84,25 @@ class LibraryViewModelTest {
 
         assertTrue(viewModel.state.first { it.isScanning }.isScanning)
     }
+
+    @Test
+    fun recentTracksFlowThroughUnsorted() = runTest {
+        val viewModel = LibraryViewModel(
+            FakeMusicRepository(recentTracks = listOf(track(id = 9, disc = 1, number = 1, title = "Latest"))),
+        )
+
+        assertEquals(
+            listOf("Latest"),
+            viewModel.state.first { it.recentTracks.isNotEmpty() }.recentTracks.map { it.title },
+        )
+    }
 }
 
 private class FakeMusicRepository(
     albums: List<Album> = emptyList(),
     tracks: List<Track> = emptyList(),
     artists: List<Artist> = emptyList(),
+    recentTracks: List<Track> = emptyList(),
 ) : MusicRepository {
     private val albumList = albums
     private val trackList = tracks
@@ -100,6 +113,7 @@ private class FakeMusicRepository(
     override val artists: Flow<List<Artist>> = flowOf(artistList)
     override val favoriteTracks: Flow<List<Track>> = flowOf(emptyList())
     override val favoriteIds: Flow<Set<Long>> = flowOf(emptySet())
+    override val recentTracks: Flow<List<Track>> = flowOf(recentTracks)
 
     override fun search(query: String): Flow<List<Track>> = flowOf(emptyList())
 
@@ -107,6 +121,7 @@ private class FakeMusicRepository(
         trackList.filter { it.id in ids }
 
     override suspend fun setFavorite(trackId: Long, favorite: Boolean) = Unit
+    override suspend fun recordPlay(trackId: Long) = Unit
 
     override suspend fun rebuildDerived() = Unit
 }

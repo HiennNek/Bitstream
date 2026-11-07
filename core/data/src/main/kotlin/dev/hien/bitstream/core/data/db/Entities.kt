@@ -133,6 +133,22 @@ data class FavoriteEntity(
     @ColumnInfo(name = "added_at") val addedAt: Long,
 )
 
+@Entity(
+    tableName = "play_history",
+    foreignKeys = [
+        ForeignKey(
+            entity = TrackEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["track_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class PlayHistoryEntity(
+    @PrimaryKey @ColumnInfo(name = "track_id") val trackId: Long,
+    @ColumnInfo(name = "played_at") val playedAt: Long,
+)
+
 @Entity(tableName = "playback_state")
 data class PlaybackStateEntity(
     @PrimaryKey val id: Int = 0,
