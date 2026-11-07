@@ -25,4 +25,13 @@ class TrackHueTest {
     fun emptyAlbumFallsBackToArtistAndTitle() {
         assertNotEquals(trackHue("", "", "A", "Song"), trackHue("", "", "B", "Song"))
     }
+
+    @Test
+    fun perTrackHueIsStableAndInRange() {
+        assertEquals(trackHue(42L), trackHue(42L))
+        assertTrue(trackHue(42L) in 0..359)
+        // Consecutive ids land in different families at reasonable rates.
+        val families = (0L until 100L).map { trackHue(it) / 30 }.toSet()
+        assertTrue("expected varied families, got $families", families.size > 5)
+    }
 }

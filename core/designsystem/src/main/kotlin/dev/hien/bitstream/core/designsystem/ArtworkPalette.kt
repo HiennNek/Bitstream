@@ -2,13 +2,16 @@ package dev.hien.bitstream.core.designsystem
 
 import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
- * Picks the dominant saturated hue (0..359) from ARGB pixels. Near-black,
+ * Picks the dominant hue (0..359, OKLCH degrees — the same space the theme's
+ * palette renders in, so extracted hue and displayed color agree) from ARGB
+ * pixels. Weighted by OKLCH chroma so vivid areas dominate, and near-black,
  * near-white and grey pixels are ignored so a monochrome sleeve falls through
- * to the wallpaper scheme instead of tinting everything grey.
+ * to the fallback scheme instead of tinting everything grey.
  */
 fun dominantArtworkHue(argbPixels: IntArray): Int? {
     val weightPerBin = FloatArray(HUE_BINS)
@@ -19,23 +22,27 @@ fun dominantArtworkHue(argbPixels: IntArray): Int? {
         val r = (argb shr 16) and 0xFF
         val g = (argb shr 8) and 0xFF
         val b = argb and 0xFF
-        val max = maxOf(r, g, b)
-        val min = minOf(r, g, b)
-        val delta = max - min
-        if (max == 0 || delta == 0) continue
-        val saturation = delta / max.toFloat()
-        val value = max / 255f
-        if (saturation < MIN_SATURATION || value < MIN_VALUE) continue
+        // sRGB -> linear-light (the OKLab transform's first step).
+        val lr = srgbToLinear(r)
+        val lg = srgbToLinear(g)
+        val lb = srgbToLinear(b)
+        val l = 0.4122214708f * lr + 0.5363325363f * lg + 0.0514459929f * lb
+        val m = 0.2119034982f * lr + 0.6806995451f * lg + 0.1073969566f * lb
+        val s = 0.0883024619f * lr + 0.2817188376f * lg + 0.6299787005f * lb
+        val lPrime = cbrt(l)
+        val mPrime = cbrt(m)
+        val sPrime = cbrt(s)
+        val bigA = 1.9779984951f * lPrime - 2.428592205f * mPrime + 0.4505937099f * sPrime
+        val bigB = 0.0259040371f * lPrime + 0.7827717662f * mPrime - 0.808675766f * sPrime
+        val chroma = kotlin.math.sqrt(bigA * bigA + bigB * bigB)
+        // Grey/monochrome pixels: chroma below threshold carries no hue signal.
+        if (chroma < MIN_CHROMA || lPrime <= 0f) continue
 
-        var hue = when (max) {
-            r -> 60f * ((g - b) / delta.toFloat())
-            g -> 60f * (2f + (b - r) / delta.toFloat())
-            else -> 60f * (4f + (r - g) / delta.toFloat())
-        }
-        if (hue < 0f) hue += 360f
-        val weight = saturation * saturation * value
-        val bin = (hue / BIN_DEGREES).toInt().coerceIn(0, HUE_BINS - 1)
-        val angle = Math.toRadians(hue.toDouble())
+        var hueDegrees = Math.toDegrees(atan2(bigB.toDouble(), bigA.toDouble())).toFloat()
+        if (hueDegrees < 0f) hueDegrees += 360f
+        val weight = chroma * chroma * lPrime
+        val bin = (hueDegrees / BIN_DEGREES).toInt().coerceIn(0, HUE_BINS - 1)
+        val angle = Math.toRadians(hueDegrees.toDouble())
         weightPerBin[bin] += weight
         xPerBin[bin] += (weight * cos(angle)).toFloat()
         yPerBin[bin] += (weight * sin(angle)).toFloat()
@@ -55,8 +62,17 @@ fun dominantArtworkHue(argbPixels: IntArray): Int? {
     return ((degrees % 360) + 360) % 360
 }
 
+/** sRGB 0..255 channel to linear light. */
+private fun srgbToLinear(channel: Int): Float {
+    val value = channel / 255f
+    return if (value <= 0.04045f) value / 12.92f else Math.pow(value.toDouble(), 2.4).toFloat()
+}
+
+private fun cbrt(value: Float): Float = Math.cbrt(value.toDouble()).toFloat()
+
 private const val HUE_BINS = 36
 private const val BIN_DEGREES = 10f
 private const val OPAQUE = 0x80
-private const val MIN_SATURATION = 0.15f
-private const val MIN_VALUE = 0.10f
+
+/** OKLCH chroma under which a pixel reads as grey. */
+private const val MIN_CHROMA = 0.02f

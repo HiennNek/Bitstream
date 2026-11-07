@@ -5,6 +5,8 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.ui.unit.IntOffset
@@ -73,7 +75,13 @@ fun fadeThroughEnter(spec: FiniteAnimationSpec<Float>): EnterTransition = fadeIn
 
 fun fadeThroughExit(spec: FiniteAnimationSpec<Float>): ExitTransition = fadeOut(spec)
 
-/** Push/pop transition for detail screens (album, artist, now playing, diagnostics). */
+/**
+ * M3 forward/back pair for detail screens (album, artist, now playing,
+ * diagnostics). Forward slides in from the leading edge over a fading parent;
+ * back is the depth collapse of the system predictive back: the top screen
+ * shrinks toward the trailing edge while the parent rises from 0.9. NavHost
+ * seeks these transitions during the back gesture, so they follow the finger.
+ */
 fun detailEnter(
     spatial: FiniteAnimationSpec<IntOffset>,
     effects: FiniteAnimationSpec<Float>,
@@ -86,17 +94,30 @@ fun detailExit(
 ): ExitTransition =
     slideOutHorizontally(animationSpec = spatial, targetOffsetX = { -it / 4 }) + fadeOut(effects)
 
+/**
+ * M3 back: the screen beneath rises from slightly smaller (0.9 -> 1.0) while the
+ * top screen shrinks to 0.9 — the system predictive-back look. The enter spring
+ * is intentionally underdamped (expressive), so the parent settles with a subtle
+ * overshoot; [fadeThroughEnter] keeps the cross-fade silent.
+ */
 fun detailPopEnter(
-    spatial: FiniteAnimationSpec<IntOffset>,
+    spatial: FiniteAnimationSpec<Float>,
     effects: FiniteAnimationSpec<Float>,
-): EnterTransition =
-    slideInHorizontally(animationSpec = spatial, initialOffsetX = { -it / 4 }) + fadeIn(effects)
+): EnterTransition = scaleIn(animationSpec = spatial, initialScale = 0.9f) + fadeIn(effects)
 
+/**
+ * M3 back: the top screen shrinks to 0.9 and slides toward [exitDirection]
+ * (+1 = trailing end, -1 = leading) — the depth collapse of the system
+ * predictive back. Exits must not bounce: [slide] is expected critically damped
+ * (dampingRatio = 1f), unlike the underdamped enter spring.
+ */
 fun detailPopExit(
-    spatial: FiniteAnimationSpec<IntOffset>,
-    effects: FiniteAnimationSpec<Float>,
+    slide: FiniteAnimationSpec<IntOffset>,
+    spatial: FiniteAnimationSpec<Float>,
+    exitDirection: Int = 1,
 ): ExitTransition =
-    slideOutHorizontally(animationSpec = spatial, targetOffsetX = { it / 4 }) + fadeOut(effects)
+    slideOutHorizontally(animationSpec = slide, targetOffsetX = { it * exitDirection }) +
+        scaleOut(animationSpec = spatial, targetScale = 0.9f)
 
 /**
  * Canonical `depth/rate` label for a FLAC source, e.g. `24/192` or `16/44.1`.

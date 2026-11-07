@@ -487,7 +487,7 @@ private fun PortraitLibrary(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(start = 8.dp, end = 24.dp, top = 32.dp, bottom = 24.dp),
+            .padding(start = 8.dp, end = 24.dp, top = 32.dp, bottom = 0.dp),
     ) {
         LibraryHeader(
             onSettings = onSettings,
@@ -503,7 +503,7 @@ private fun PortraitLibrary(
         )
         LazyColumn(
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(top = 20.dp),
+            contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp),
         ) {
             if (state.isScanning) {
                 item { ScanningRow() }
@@ -587,7 +587,7 @@ private fun ExpandedLibrary(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(start = 8.dp, end = 32.dp, top = 28.dp, bottom = 24.dp),
+            .padding(start = 8.dp, end = 32.dp, top = 28.dp, bottom = 0.dp),
     ) {
         LibraryHeader(
             onSettings = onSettings,

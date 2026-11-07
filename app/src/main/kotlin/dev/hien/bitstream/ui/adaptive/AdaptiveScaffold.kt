@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -106,6 +108,10 @@ fun AdaptiveNavigationScaffold(
                 NavChrome.RAIL -> {
                     Row(modifier = Modifier.fillMaxSize()) {
                         if (showNavigation) {
+                            // Rail draws at the true window edges: the parent
+                            // consumes no top inset in rail layouts, so its
+                            // container color fills the status-bar / caption
+                            // zone like the system apps' side panels.
                             NavigationRail(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                                 modifier = Modifier
@@ -133,13 +139,23 @@ fun AdaptiveNavigationScaffold(
                                 .weight(1f)
                                 .fillMaxHeight()
                                 .then(
-                                    // Rail layouts have no bottom bar to consume the
-                                    // system inset; full-screen player layouts handle
-                                    // it themselves when the rail is hidden.
+                                    // Gutter between the rail and content; screens
+                                    // carry their own 16 dp start padding, so this
+                                    // evens the left gap with the ~24 dp right one.
+                                    if (showNavigation) Modifier.padding(start = 16.dp) else Modifier,
+                                )
+                                .then(
+                                    // Rail layouts have no bar to consume the
+                                    // system insets (the rail itself intentionally
+                                    // bleeds behind the top inset); content scrolls
+                                    // under the bottom inset so rows reach the
+                                    // window edge beneath the floating mini player.
+                                    // Full-screen player layouts handle insets
+                                    // themselves when the rail is hidden.
                                     if (showNavigation) {
                                         Modifier.windowInsetsPadding(
-                                            WindowInsets.navigationBars.only(
-                                                WindowInsetsSides.Bottom,
+                                            WindowInsets.safeDrawing.only(
+                                                WindowInsetsSides.Top,
                                             ),
                                         )
                                     } else {

@@ -22,19 +22,25 @@ class ArtworkPaletteTest {
         assertNull(dominantArtworkHue(intArrayOf(0x00FF0000)))
     }
 
+    /**
+     * Anchors use OKLCH hue degrees — the space the palette renderer consumes.
+     * Pure sRGB primaries sit at ~29/142/264 degrees in OKLCH, not the HSV
+     * 0/120/240; asserting those would re-encode the old extractor's hue-rotated
+     * output. Binning quantizes to 10 degrees, hence the tolerance.
+     */
     @Test
-    fun pureRedIsZeroDegrees() {
-        assertEquals(0, dominantArtworkHue(IntArray(64) { 0xFFFF0000.toInt() }))
+    fun pureRedIsOklchTwentyNineDegrees() {
+        assertEquals(29.0, dominantArtworkHue(IntArray(64) { 0xFFFF0000.toInt() })!!.toDouble(), 2.0)
     }
 
     @Test
-    fun pureGreenIsOneHundredTwentyDegrees() {
-        assertEquals(120, dominantArtworkHue(IntArray(64) { 0xFF00FF00.toInt() }))
+    fun pureGreenIsOklchOneHundredFortyTwoDegrees() {
+        assertEquals(142.0, dominantArtworkHue(IntArray(64) { 0xFF00FF00.toInt() })!!.toDouble(), 2.0)
     }
 
     @Test
-    fun pureBlueIsTwoHundredFortyDegrees() {
-        assertEquals(240, dominantArtworkHue(IntArray(64) { 0xFF0000FF.toInt() }))
+    fun pureBlueIsOklchTwoHundredSixtyFourDegrees() {
+        assertEquals(264.0, dominantArtworkHue(IntArray(64) { 0xFF0000FF.toInt() })!!.toDouble(), 2.0)
     }
 
     @Test

@@ -42,8 +42,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.LinearWavyProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -1142,7 +1140,7 @@ private val miniPhone = MiniMetrics(
     marginStart = 12.dp,
     marginEnd = 12.dp,
     marginTop = 0.dp,
-    marginBottom = 8.dp,
+    marginBottom = 12.dp,
     padStart = 12.dp,
     padEnd = 16.dp,
     padTop = 10.dp,
@@ -1178,7 +1176,7 @@ private val miniTabletLandscape = MiniMetrics(
     marginStart = 24.dp,
     marginEnd = 24.dp,
     marginTop = 12.dp,
-    marginBottom = 0.dp,
+    marginBottom = 24.dp,
     padStart = 12.dp,
     padEnd = 20.dp,
     padTop = 12.dp,
@@ -1231,11 +1229,6 @@ fun MiniPlayerBar(
         configuration.screenHeightDp < 600 -> miniPhoneLandscape
         else -> miniPhone
     }
-    val progress = if (state.duration > 0) {
-        state.position.toFloat() / state.duration
-    } else {
-        0f
-    }
     val playCorner by animateDpAsState(
         targetValue = if (state.isPlaying) metrics.playOnRadius else metrics.playOffRadius,
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
@@ -1270,6 +1263,7 @@ fun MiniPlayerBar(
             ) {
                 CoverArt(
                     track = track,
+                    spinning = state.isPlaying,
                     modifier = Modifier.size(metrics.art),
                 )
                 Column(
@@ -1338,31 +1332,6 @@ fun MiniPlayerBar(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-            }
-            val progressModifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(horizontal = metrics.progressInset, vertical = 0.dp)
-                .padding(bottom = metrics.progressBottom)
-                .height(4.dp)
-            if (state.isPlaying && rememberMotionEnabled()) {
-                LinearWavyProgressIndicator(
-                    progress = { progress },
-                    gapSize = 0.dp,
-                    stopSize = 0.dp,
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = progressModifier,
-                )
-            } else {
-                LinearProgressIndicator(
-                    progress = { progress },
-                    gapSize = 0.dp,
-                    drawStopIndicator = {},
-                    color = MaterialTheme.colorScheme.primary,
-                    trackColor = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = progressModifier,
-                )
             }
         }
     }

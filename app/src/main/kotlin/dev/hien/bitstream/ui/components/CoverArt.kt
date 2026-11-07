@@ -63,7 +63,9 @@ fun CoverArt(
         modifier = modifier,
         spinning = spinning,
         contentDescription = contentDescription,
-        hue = trackHue(track.albumArtist, track.album, track.artist, track.title),
+        // Per-track draw, not album: adjacent songs in a list get independent
+        // colors instead of one hue shared (and visually repeated) per record.
+        hue = trackHue(track.id),
     )
 }
 
@@ -149,7 +151,9 @@ private fun CookieCover(
                     Modifier.semantics { this.contentDescription = contentDescription }
                 }
                 GeneratedCoverArt(
-                    hue = hue ?: Math.floorMod(seed, 360L).toInt(),
+                    // Route every cookie through the family-balanced per-seed
+                    // hue; raw seed % 360 clumps row ids into the warm band.
+                    hue = hue ?: trackHue(seed),
                     seed = seed,
                     modifier = Modifier
                         .fillMaxSize()
