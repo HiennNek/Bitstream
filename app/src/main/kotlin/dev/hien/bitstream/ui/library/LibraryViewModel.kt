@@ -6,11 +6,13 @@ import dev.hien.bitstream.core.data.MusicRepository
 import dev.hien.bitstream.core.model.Album
 import dev.hien.bitstream.core.model.Artist
 import dev.hien.bitstream.core.model.Track
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 
 data class LibraryUiState(
@@ -51,9 +53,12 @@ class LibraryViewModel(
             ),
             isScanning = isScanning,
         )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.Eagerly,
-        initialValue = LibraryUiState(),
-    )
+    }
+        // Sorting a large library is CPU work; keep it off the main thread.
+        .flowOn(Dispatchers.Default)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = LibraryUiState(),
+        )
 }

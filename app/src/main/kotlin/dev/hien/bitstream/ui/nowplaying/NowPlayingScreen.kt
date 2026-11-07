@@ -95,6 +95,8 @@ import dev.hien.bitstream.ui.library.TrackRow
 import dev.hien.bitstream.ui.queue.QueueSheet
 import dev.hien.bitstream.ui.queue.QueueUiState
 import dev.hien.bitstream.ui.queue.QueueViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 enum class NowPlayingLayout { PhonePortrait, PhoneLandscape, TabletPortrait, TabletLandscape }
 
@@ -127,8 +129,6 @@ fun NowPlayingRoute(
         },
     )
     val state by viewModel.state.collectAsState()
-    val positionMs by viewModel.positionMs.collectAsState()
-    val durationMs by viewModel.durationMs.collectAsState()
     val favoritesState by favoritesViewModel.state.collectAsState()
     val queueState by queueViewModel.state.collectAsState()
     val libraryState by libraryViewModel.state.collectAsState()
@@ -153,8 +153,8 @@ fun NowPlayingRoute(
         val player: @Composable (Modifier) -> Unit = { modifier ->
             NowPlayingContent(
                 state = effectiveState,
-                positionMs = positionMs,
-                durationMs = durationMs,
+                position = viewModel.positionMs,
+                duration = viewModel.durationMs,
                 favoriteIds = favoritesState.favoriteIds,
                 upNext = upNext,
                 layout = layout,
@@ -179,7 +179,15 @@ fun NowPlayingRoute(
 
         if (layout == NowPlayingLayout.TabletLandscape) {
             val songsWidth = if (maxWidth >= 1100.dp) 544.dp else 360.dp
-            Row(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    // The rail layout consumes only the top inset, so the pane and
+                    // song list must clear the system nav bar themselves.
+                    .windowInsetsPadding(
+                        WindowInsets.navigationBars.only(WindowInsetsSides.Bottom),
+                    ),
+            ) {
                 SongsPane(
                     tracks = libraryState.tracks,
                     width = songsWidth,
@@ -227,8 +235,8 @@ private fun QueueUiState.upNext(): List<Track> =
 @Composable
 fun NowPlayingContent(
     state: NowPlayingUiState,
-    positionMs: Long = 0L,
-    durationMs: Long = 0L,
+    position: StateFlow<Long>,
+    duration: StateFlow<Long>,
     favoriteIds: Set<Long> = emptySet(),
     upNext: List<Track> = emptyList(),
     layout: NowPlayingLayout = NowPlayingLayout.PhonePortrait,
@@ -248,8 +256,8 @@ fun NowPlayingContent(
 ) {
     val common = PlayerCallbacks(
         onBack = onBack,
-        positionMs = positionMs,
-        durationMs = durationMs,
+        position = position,
+        duration = duration,
         favoriteIds = favoriteIds,
         upNext = upNext,
         onPlayPause = onPlayPause,
@@ -274,10 +282,33 @@ fun NowPlayingContent(
     }
 }
 
+/**
+ * Collects the 100 ms transport flows here, not at the route, so only the seek
+ * bar recomposes on a position tick instead of the whole player screen.
+ */
+@Composable
+private fun PlayerSeekBar(
+    position: StateFlow<Long>,
+    duration: StateFlow<Long>,
+    playing: Boolean,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val positionMs by position.collectAsState()
+    val durationMs by duration.collectAsState()
+    WaveformSeek(
+        positionMs = positionMs,
+        durationMs = durationMs,
+        playing = playing,
+        onSeek = onSeek,
+        modifier = modifier,
+    )
+}
+
 private class PlayerCallbacks(
     val onBack: (() -> Unit)?,
-    val positionMs: Long,
-    val durationMs: Long,
+    val position: StateFlow<Long>,
+    val duration: StateFlow<Long>,
     val favoriteIds: Set<Long>,
     val upNext: List<Track>,
     val onPlayPause: () -> Unit,
@@ -364,9 +395,9 @@ private fun PhonePortraitPlayer(state: NowPlayingUiState, c: PlayerCallbacks) {
                     .padding(start = 24.dp, end = 24.dp, top = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                WaveformSeek(
-                    positionMs = c.positionMs,
-                    durationMs = c.durationMs,
+                PlayerSeekBar(
+                    position = c.position,
+                    duration = c.duration,
                     playing = state.isPlaying,
                     onSeek = c.onSeek,
                     modifier = Modifier
@@ -438,9 +469,9 @@ private fun PhoneLandscapePlayer(state: NowPlayingUiState, c: PlayerCallbacks) {
                 gap = 16.dp,
             )
             Column(modifier = Modifier.fillMaxWidth()) {
-                WaveformSeek(
-                    positionMs = c.positionMs,
-                    durationMs = c.durationMs,
+                PlayerSeekBar(
+                    position = c.position,
+                    duration = c.duration,
                     playing = state.isPlaying,
                     onSeek = c.onSeek,
                     modifier = Modifier
@@ -508,9 +539,9 @@ private fun TabletPortraitPlayer(state: NowPlayingUiState, c: PlayerCallbacks) {
                 gap = 20.dp,
                 modifier = Modifier.padding(top = 28.dp),
             )
-            WaveformSeek(
-                positionMs = c.positionMs,
-                durationMs = c.durationMs,
+            PlayerSeekBar(
+                position = c.position,
+                duration = c.duration,
                 playing = state.isPlaying,
                 onSeek = c.onSeek,
                 modifier = Modifier
@@ -585,9 +616,9 @@ private fun TabletLandscapePlayer(state: NowPlayingUiState, c: PlayerCallbacks) 
             gap = 16.dp,
             modifier = Modifier.padding(top = 20.dp),
         )
-        WaveformSeek(
-            positionMs = c.positionMs,
-            durationMs = c.durationMs,
+        PlayerSeekBar(
+            position = c.position,
+            duration = c.duration,
             playing = state.isPlaying,
             onSeek = c.onSeek,
             modifier = Modifier
@@ -1234,6 +1265,17 @@ fun MiniPlayerBar(
         animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
         label = "miniPlayCorner",
     )
+    // Morph the cover between the bar and the full player, as the original bar did.
+    val sharedModifier = if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+        with(sharedTransitionScope) {
+            Modifier.sharedElement(
+                sharedContentState = rememberSharedContentState(key = "now_playing_artwork"),
+                animatedVisibilityScope = animatedVisibilityScope,
+            )
+        }
+    } else {
+        Modifier
+    }
     Surface(
         shape = RoundedCornerShape(metrics.radius),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -1264,7 +1306,9 @@ fun MiniPlayerBar(
                 CoverArt(
                     track = track,
                     spinning = state.isPlaying,
-                    modifier = Modifier.size(metrics.art),
+                    modifier = Modifier
+                        .size(metrics.art)
+                        .then(sharedModifier),
                 )
                 Column(
                     modifier = Modifier.weight(1f),
@@ -1434,8 +1478,8 @@ internal fun NowPlayingScreenPreview() {
                 }
                 NowPlayingContent(
                     state = previewNowPlayingState,
-                    positionMs = 69_000,
-                    durationMs = 243_000,
+                    position = remember { MutableStateFlow(69_000L) },
+                    duration = remember { MutableStateFlow(243_000L) },
                     favoriteIds = setOf(1L),
                     upNext = previewUpNext,
                     layout = layout,

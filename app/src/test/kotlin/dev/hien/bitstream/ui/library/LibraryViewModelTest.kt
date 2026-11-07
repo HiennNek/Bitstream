@@ -52,11 +52,11 @@ class LibraryViewModelTest {
 
         assertEquals(
             listOf("A", "A", "B"),
-            viewModel.state.first().albums.map { it.title },
+            viewModel.state.first { it.albums.isNotEmpty() }.albums.map { it.title },
         )
         assertEquals(
             listOf("Amy", "Zed", "Zed"),
-            viewModel.state.first().albums.map { it.albumArtist },
+            viewModel.state.first { it.albums.isNotEmpty() }.albums.map { it.albumArtist },
         )
     }
 
@@ -74,7 +74,7 @@ class LibraryViewModelTest {
 
         assertEquals(
             listOf("Track one", "Track two", "Second disc"),
-            viewModel.state.first().tracks.map { it.title },
+            viewModel.state.first { it.tracks.isNotEmpty() }.tracks.map { it.title },
         )
     }
 
@@ -82,7 +82,7 @@ class LibraryViewModelTest {
     fun scanningFlagIsExposed() = runTest {
         val viewModel = LibraryViewModel(FakeMusicRepository(), scanning = flowOf(true))
 
-        assertTrue(viewModel.state.first().isScanning)
+        assertTrue(viewModel.state.first { it.isScanning }.isScanning)
     }
 }
 

@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * [AudioBackend] implementation backed by [UsbDeviceManager] and the JNI
@@ -139,11 +140,11 @@ class NativeAudioBackend(
             openedSubslotBytes == matchingFormat.subslotBytes
 
         if (sameInterfaceAndSubslot && openedSampleRate != format.sampleRate) {
-            val switched = NativeAudio.nativeSetSampleRate(nativeHandle, format.sampleRate)
+            val switched = onIo { NativeAudio.nativeSetSampleRate(nativeHandle, format.sampleRate) }
             if (switched == 0) {
                 openedSampleRate = format.sampleRate
             } else {
-                closeNativeHandle()
+                onIo { closeNativeHandle() }
             }
         }
 
@@ -154,19 +155,21 @@ class NativeAudioBackend(
             openedSubslotBytes == matchingFormat.subslotBytes
 
         if (!canReuseHandle) {
-            closeNativeHandle()
-            val handle = NativeAudio.nativeOpen(
-                fd = dacState.fileDescriptor,
-                endpoint = device.endpointAddress,
-                interfaceNumber = device.streamingInterface,
-                altSetting = device.altSetting,
-                subslotBytes = matchingFormat.subslotBytes,
-                channels = format.channels,
-                sampleRate = format.sampleRate,
-                syncType = device.syncType.ordinal,
-                feedbackEndpoint = device.feedbackEndpoint ?: 0,
-                clockSourceId = device.clockSourceId ?: 0,
-            )
+            onIo { closeNativeHandle() }
+            val handle = onIo {
+                NativeAudio.nativeOpen(
+                    fd = dacState.fileDescriptor,
+                    endpoint = device.endpointAddress,
+                    interfaceNumber = device.streamingInterface,
+                    altSetting = device.altSetting,
+                    subslotBytes = matchingFormat.subslotBytes,
+                    channels = format.channels,
+                    sampleRate = format.sampleRate,
+                    syncType = device.syncType.ordinal,
+                    feedbackEndpoint = device.feedbackEndpoint ?: 0,
+                    clockSourceId = device.clockSourceId ?: 0,
+                )
+            }
             if (handle == 0L) {
                 return OpenResult.Failed(
                     "Could not open USB audio stream on ${dacState.handle.name}.",
@@ -206,7 +209,7 @@ class NativeAudioBackend(
             return
         }
 
-        val pfd = openDescriptor(uri)
+        val pfd = onIo { openDescriptor(uri) }
         if (pfd == null) {
             _events.tryEmit(
                 BackendEvent.Failed("${track?.title ?: uri} could not be decoded (file unavailable)."),
@@ -215,15 +218,17 @@ class NativeAudioBackend(
         }
 
         val result = try {
-            NativeAudio.nativePlayFile(
-                handle = handle,
-                fd = pfd.fd,
-                startFrame = startFrame,
-                sampleRate = format.sampleRate,
-                bitDepth = format.bitDepth,
-                channels = format.channels,
-                subslotBytes = uacFormat.subslotBytes,
-            )
+            onIo {
+                NativeAudio.nativePlayFile(
+                    handle = handle,
+                    fd = pfd.fd,
+                    startFrame = startFrame,
+                    sampleRate = format.sampleRate,
+                    bitDepth = format.bitDepth,
+                    channels = format.channels,
+                    subslotBytes = uacFormat.subslotBytes,
+                )
+            }
         } finally {
             runCatching { pfd.close() }
         }
@@ -253,16 +258,18 @@ class NativeAudioBackend(
         if (handle == 0L || uacFormat == null || currentFormat != format) {
             return false
         }
-        val pfd = openDescriptor(track.uri) ?: return false
+        val pfd = onIo { openDescriptor(track.uri) } ?: return false
         val result = try {
-            NativeAudio.nativeEnqueueNext(
-                handle = handle,
-                fd = pfd.fd,
-                sampleRate = format.sampleRate,
-                bitDepth = format.bitDepth,
-                channels = format.channels,
-                subslotBytes = uacFormat.subslotBytes,
-            )
+            onIo {
+                NativeAudio.nativeEnqueueNext(
+                    handle = handle,
+                    fd = pfd.fd,
+                    sampleRate = format.sampleRate,
+                    bitDepth = format.bitDepth,
+                    channels = format.channels,
+                    subslotBytes = uacFormat.subslotBytes,
+                )
+            }
         } finally {
             runCatching { pfd.close() }
         }
@@ -279,7 +286,7 @@ class NativeAudioBackend(
         enqueuedTracks.clear()
         _ringFillPercent.value = 0
         if (nativeHandle != 0L) {
-            NativeAudio.nativeStop(nativeHandle)
+            onIo { NativeAudio.nativeStop(nativeHandle) }
         }
     }
 
@@ -298,12 +305,12 @@ class NativeAudioBackend(
         lastTrackIndex = 0L
         _ringFillPercent.value = 0
         if (nativeHandle != 0L) {
-            NativeAudio.nativeStop(nativeHandle)
+            onIo { NativeAudio.nativeStop(nativeHandle) }
         }
     }
 
     override suspend fun close() {
-        closeNativeHandle()
+        onIo { closeNativeHandle() }
     }
 
     override fun setSoftwareVolume(enabled: Boolean) {
@@ -449,6 +456,13 @@ class NativeAudioBackend(
             }
         }
     }
+
+    /**
+     * Native open/stop joins worker threads (up to the libusb cancel deadline)
+     * and SAF descriptor opens can block, so never run them on the caller's
+     * thread: the engine executes commands undispatched on the main thread.
+     */
+    private suspend fun <T> onIo(block: () -> T): T = withContext(Dispatchers.IO) { block() }
 
     private fun openDescriptor(uri: String): ParcelFileDescriptor? =
         runCatching {

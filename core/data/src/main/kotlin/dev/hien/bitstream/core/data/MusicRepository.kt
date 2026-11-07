@@ -10,7 +10,9 @@ import dev.hien.bitstream.core.data.db.TrackEntity
 import dev.hien.bitstream.core.model.Album
 import dev.hien.bitstream.core.model.Artist
 import dev.hien.bitstream.core.model.Track
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 /** The read side the UI needs. Kept as an interface so ViewModels can be tested with fakes. */
@@ -37,14 +39,20 @@ class RoomMusicRepository(
     private val artistDao: ArtistDao,
     private val favoriteDao: FavoriteDao,
 ) : MusicRepository {
+    // Room emits on its query executor but the entity -> model mapping runs in
+    // the collector's context, which is the main thread for the library
+    // ViewModels. Mapping every track there janked the library scene.
     override val tracks: Flow<List<Track>> =
         trackDao.observeTracks().map { entities -> entities.map { it.toModel() } }
+            .flowOn(Dispatchers.Default)
 
     override val albums: Flow<List<Album>> =
         albumDao.observeAlbums().map { entities -> entities.map { it.toModel() } }
+            .flowOn(Dispatchers.Default)
 
     override val artists: Flow<List<Artist>> =
         artistDao.observeArtists().map { entities -> entities.map { it.toModel() } }
+            .flowOn(Dispatchers.Default)
 
     override fun search(query: String): Flow<List<Track>> =
         trackDao.search(query).map { entities -> entities.map { it.toModel() } }

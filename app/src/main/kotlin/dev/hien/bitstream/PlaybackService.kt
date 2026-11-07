@@ -25,6 +25,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -105,31 +107,34 @@ class PlaybackService : MediaSessionService() {
         addSession(session)
 
         serviceScope.launch {
-            controller.state.collect { state ->
-                when (state.status) {
-                    PlaybackStatus.OPENING,
-                    PlaybackStatus.READY,
-                    -> {
-                        acquireAudioFocus()
-                        acquireWakeLock()
-                    }
+            controller.state
+                .map { it.status }
+                .distinctUntilChanged()
+                .collect { status ->
+                    when (status) {
+                        PlaybackStatus.OPENING,
+                        PlaybackStatus.READY,
+                        -> {
+                            acquireAudioFocus()
+                            acquireWakeLock()
+                        }
 
-                    PlaybackStatus.PAUSED -> {
-                        releaseWakeLock()
-                    }
+                        PlaybackStatus.PAUSED -> {
+                            releaseWakeLock()
+                        }
 
-                    PlaybackStatus.IDLE,
-                    PlaybackStatus.ENDED,
-                    PlaybackStatus.ERROR,
-                    PlaybackStatus.NO_DAC,
-                    -> {
-                        releaseWakeLock()
-                        if (!resumeOnFocusGain) {
-                            abandonAudioFocus()
+                        PlaybackStatus.IDLE,
+                        PlaybackStatus.ENDED,
+                        PlaybackStatus.ERROR,
+                        PlaybackStatus.NO_DAC,
+                        -> {
+                            releaseWakeLock()
+                            if (!resumeOnFocusGain) {
+                                abandonAudioFocus()
+                            }
                         }
                     }
                 }
-            }
         }
 
         serviceScope.launch {

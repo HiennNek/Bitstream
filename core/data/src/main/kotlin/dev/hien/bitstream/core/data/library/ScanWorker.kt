@@ -56,9 +56,7 @@ class ScanWorker(
                 val result = scanner.scan(
                     roots = listOf(root),
                     existing = existingTracks,
-                ) { count ->
-                    setProgressAsync(workDataOf(KEY_PROGRESS to count))
-                }
+                )
 
                 database.trackDao().upsertAll(result.tracks.map { it.toEntity() })
                 result.tracks.forEach { scannedIds.add(it.id) }
@@ -96,7 +94,6 @@ class ScanWorker(
     companion object {
         const val UNIQUE_WORK = "library-scan"
         const val KEY_TREE_URI = "tree_uri"
-        const val KEY_PROGRESS = "progress"
         const val KEY_TRACK_COUNT = "track_count"
 
         /** Enqueue a scan of one folder, or of every saved folder when [treeUri] is null. */

@@ -98,7 +98,9 @@ fun CoverArt(
     CookieCover(
         artworkUri = artworkUri,
         seed = seed,
-        rotation = angle.value,
+        // Read in the graphicsLayer block, not here: a composition-phase read
+        // would recompose this subtree on every animation frame.
+        rotation = { angle.value },
         contentDescription = contentDescription,
         hue = hue,
         modifier = modifier,
@@ -115,7 +117,7 @@ fun CoverArt(
 private fun CookieCover(
     artworkUri: String?,
     seed: Long,
-    rotation: Float,
+    rotation: () -> Float,
     contentDescription: String?,
     hue: Int?,
     modifier: Modifier = Modifier,
@@ -132,7 +134,7 @@ private fun CookieCover(
             modifier = Modifier
                 .fillMaxSize(0.9f)
                 .graphicsLayer {
-                    rotationZ = rotation
+                    rotationZ = rotation()
                     this.shape = shape
                     clip = true
                 },
@@ -192,7 +194,7 @@ internal fun CoverArtAngleGrid(dark: Boolean, size: Dp) {
                     CookieCover(
                         artworkUri = null,
                         seed = 1L,
-                        rotation = angle,
+                        rotation = { angle },
                         contentDescription = null,
                         hue = 12,
                         modifier = Modifier.size(size),

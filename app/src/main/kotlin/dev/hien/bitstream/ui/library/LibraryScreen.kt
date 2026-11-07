@@ -298,9 +298,6 @@ private fun CompactLibrary(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
         ) {
-            if (state.isScanning) {
-                item { ScanningRow(Modifier.padding(horizontal = 24.dp)) }
-            }
             item {
                 LibraryHeader(
                     onSettings = onSettings,
@@ -310,7 +307,7 @@ private fun CompactLibrary(
                 )
             }
             if (state.isScanning) {
-                item { ScanningRow() }
+                item { ScanningRow(Modifier.padding(horizontal = 24.dp)) }
             }
             if (state.albums.isNotEmpty()) {
                 item { SectionTitle("Jump back in", MaterialTheme.typography.titleLarge, 24.dp, 12.dp) }

@@ -406,15 +406,11 @@ fun BitstreamApp() {
                         targetOffsetY = { it },
                     ) + fadeOut(effects),
                 ) {
-                    // Collect the fast transport flows here so the 100 ms tick
-                    // recomposes only the mini player, not the whole app.
-                    val miniPosition by nowPlayingViewModel.positionMs.collectAsState()
-                    val miniDuration by nowPlayingViewModel.durationMs.collectAsState()
+                    // The bar no longer shows progress, so do not subscribe to
+                    // the 100 ms position flow here: it would recompose the bar
+                    // ten times a second for nothing.
                     MiniPlayerBar(
-                        state = nowPlayingState.copy(
-                            position = miniPosition,
-                            duration = miniDuration,
-                        ),
+                        state = nowPlayingState,
                         onOpenNowPlaying = {
                             navController.navigate(NOW_PLAYING_ROUTE) {
                                 launchSingleTop = true
@@ -423,6 +419,15 @@ fun BitstreamApp() {
                         onPlayPause = nowPlayingViewModel::togglePlayPause,
                         onPrevious = nowPlayingViewModel::previous,
                         onNext = nowPlayingViewModel::next,
+                        // The rail layout lets content flow to the window edge,
+                        // so the floating bar must clear the system nav bar itself.
+                        modifier = if (railChrome) {
+                            Modifier.windowInsetsPadding(
+                                WindowInsets.navigationBars.only(WindowInsetsSides.Bottom),
+                            )
+                        } else {
+                            Modifier
+                        },
                         sharedTransitionScope = this@SharedTransitionLayout,
                         animatedVisibilityScope = this,
                     )

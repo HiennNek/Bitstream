@@ -96,7 +96,14 @@ class AppContainer(context: Context) {
                 }
             }
             appScope.launch {
-                var lastSavedStructure: String? = null
+                // queueItems only re-emits when the queue changes, so compare the
+                // list by identity instead of rebuilding an O(queue) key on every
+                // 100 ms position tick.
+                var lastItems: List<Track>? = null
+                var lastIndex = -1
+                var lastStatus: PlaybackStatus? = null
+                var lastShuffle = false
+                var lastRepeat: RepeatMode? = null
                 var lastSaveTimeMs = 0L
                 combine(
                     engine.queueItems,
@@ -106,12 +113,19 @@ class AppContainer(context: Context) {
                     Triple(items, index, state)
                 }.collect { (items, index, state) ->
                     if (items.isNotEmpty() && index >= 0) {
-                        val structureKey = "${items.map { it.id }}|$index|${state.status}|${state.shuffle}|${state.repeat}"
+                        val structureChanged = items !== lastItems ||
+                            index != lastIndex ||
+                            state.status != lastStatus ||
+                            state.shuffle != lastShuffle ||
+                            state.repeat != lastRepeat
                         val now = System.currentTimeMillis()
-                        val structureChanged = structureKey != lastSavedStructure
                         val periodicDue = now - lastSaveTimeMs >= 5_000L
                         if (structureChanged || periodicDue) {
-                            lastSavedStructure = structureKey
+                            lastItems = items
+                            lastIndex = index
+                            lastStatus = state.status
+                            lastShuffle = state.shuffle
+                            lastRepeat = state.repeat
                             lastSaveTimeMs = now
                             playbackStateStore.save(
                                 queueIds = items.map { it.id },
@@ -153,13 +167,9 @@ class AppContainer(context: Context) {
         )
     }
 
-    init {
-        appScope.launch {
-            if (database.scanFolderDao().observeFolders().first().isNotEmpty()) {
-                scanAll()
-            }
-        }
-    }
+    // No scan on launch: a full SAF walk of the library is the single largest
+    // startup cost. Adding a folder and the Settings "Rescan library" action
+    // still enqueue one.
 
     suspend fun addFolder(treeUri: String, displayName: String) {
         database.scanFolderDao().upsert(

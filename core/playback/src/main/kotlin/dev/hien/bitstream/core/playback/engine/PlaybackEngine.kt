@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 /**
  * Transport and state interface consumed by the Media3 player adapter and UI
@@ -252,6 +253,10 @@ class PlaybackEngine(
             }
             if (_state.value.status == PlaybackStatus.READY) {
                 backend.start(track.uri, targetFrame)
+            } else if (_state.value.status == PlaybackStatus.PAUSED) {
+                // A paused backend stopped its engine, so resume() would restart
+                // from the pre-seek frame. Reopen at the new frame on play.
+                needsReopenOnResume = true
             }
         }
     }
@@ -376,7 +381,8 @@ class PlaybackEngine(
         enqueueCommand {
             val clamped = level.coerceIn(0, 100)
             lastHardwareVolume = VolumeState.Hardware(clamped)
-            backend.setHardwareVolume(clamped)
+            // USB control transfers block; keep them off the UI thread.
+            withContext(Dispatchers.IO) { backend.setHardwareVolume(clamped) }
             if (!softwareVolumeEnabled) {
                 _state.update { it.copy(volume = lastHardwareVolume) }
             }
@@ -417,7 +423,7 @@ class PlaybackEngine(
             startFrame = 0L,
             allowSkipOnFailure = queue.size > 1 || !initialAttempt,
         )
-        if (!started && queue.size > 1) {
+        if (!started && queue.size > 1 && _state.value.status != PlaybackStatus.NO_DAC) {
             advanceToNextPlayable(ignoreRepeatOne = true, maxAttempts = queue.size - 1)
         }
     }

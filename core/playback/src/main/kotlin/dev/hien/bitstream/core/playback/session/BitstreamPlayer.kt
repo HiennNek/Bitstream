@@ -46,6 +46,14 @@ class BitstreamPlayer(
     private val mainHandler = Handler(looper)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
 
+    // getState() runs on every 100 ms position tick. Rebuilding the whole
+    // playlist (a MediaItem + metadata per queued track) each time is O(queue)
+    // main-thread work, so reuse it until the queue or the format path changes.
+    private var cachedTracks: List<Track>? = null
+    private var cachedPath: BitPerfectPath? = null
+    private var cachedPlayerState: Int = Int.MIN_VALUE
+    private var cachedMediaItems: List<MediaItemData> = emptyList()
+
     init {
         scope.launch {
             combine(
@@ -86,32 +94,16 @@ class BitstreamPlayer(
             listOfNotNull(state.track)
         }
 
-        val mediaItems = if (items.isNotEmpty()) {
-            items.map { track ->
-                val metadata = buildMediaMetadata(track, state)
-                val mediaItem = MediaItem.Builder()
-                    .setMediaId(track.id.toString())
-                    .setUri(track.uri)
-                    .setMediaMetadata(metadata)
-                    .build()
-                MediaItemData.Builder(track.id)
-                    .setMediaItem(mediaItem)
-                    .setMediaMetadata(metadata)
-                    .setDurationUs(
-                        if (track.durationMs > 0L) track.durationMs * 1_000L else C.TIME_UNSET,
-                    )
-                    .setIsSeekable(true)
-                    .build()
-            }
-        } else if (playerState == Player.STATE_READY || playerState == Player.STATE_BUFFERING) {
-            // SimpleBasePlayer requires a non-empty playlist in STATE_READY / STATE_BUFFERING.
-            listOf(
-                MediaItemData.Builder(PLACEHOLDER_ITEM_UID)
-                    .setIsSeekable(true)
-                    .build(),
-            )
+        val mediaItems = if (items === cachedTracks &&
+            state.path == cachedPath &&
+            playerState == cachedPlayerState
+        ) {
+            cachedMediaItems
         } else {
-            emptyList()
+            cachedTracks = items
+            cachedPath = state.path
+            cachedPlayerState = playerState
+            buildMediaItems(items, playerState, state).also { cachedMediaItems = it }
         }
 
         val currentIndex = controller.currentQueueIndex.value.takeIf { it in mediaItems.indices }
@@ -279,6 +271,38 @@ class BitstreamPlayer(
     override fun handleRelease(): ListenableFuture<*> {
         scope.cancel()
         return Futures.immediateVoidFuture()
+    }
+
+    private fun buildMediaItems(
+        items: List<Track>,
+        playerState: Int,
+        state: PlaybackState,
+    ): List<MediaItemData> = if (items.isNotEmpty()) {
+        items.map { track ->
+            val metadata = buildMediaMetadata(track, state)
+            val mediaItem = MediaItem.Builder()
+                .setMediaId(track.id.toString())
+                .setUri(track.uri)
+                .setMediaMetadata(metadata)
+                .build()
+            MediaItemData.Builder(track.id)
+                .setMediaItem(mediaItem)
+                .setMediaMetadata(metadata)
+                .setDurationUs(
+                    if (track.durationMs > 0L) track.durationMs * 1_000L else C.TIME_UNSET,
+                )
+                .setIsSeekable(true)
+                .build()
+        }
+    } else if (playerState == Player.STATE_READY || playerState == Player.STATE_BUFFERING) {
+        // SimpleBasePlayer requires a non-empty playlist in STATE_READY / STATE_BUFFERING.
+        listOf(
+            MediaItemData.Builder(PLACEHOLDER_ITEM_UID)
+                .setIsSeekable(true)
+                .build(),
+        )
+    } else {
+        emptyList()
     }
 
     private fun buildMediaMetadata(track: Track, state: PlaybackState): MediaMetadata {

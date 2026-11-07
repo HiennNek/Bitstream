@@ -1,6 +1,7 @@
 package dev.hien.bitstream.core.designsystem
 
 import android.animation.ValueAnimator
+import android.content.Context
 import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
@@ -11,11 +12,8 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.graphicsLayer
@@ -24,25 +22,36 @@ import androidx.compose.ui.platform.LocalContext
 /**
  * Respects the system "remove animations" setting for the cover spin and wave
  * drift. Compose does not expose its animation scale as a composition local.
+ *
+ * The setting is process-wide, so it gets one observer for the whole app.
+ * Registering per cover was a synchronous binder call for every artwork on
+ * screen, repeated on every screen entry and scroll.
  */
 @Composable
 fun rememberMotionEnabled(): Boolean {
-    val context = LocalContext.current
-    var enabled by remember { mutableStateOf(ValueAnimator.areAnimatorsEnabled()) }
-    DisposableEffect(context) {
-        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
-            override fun onChange(selfChange: Boolean) {
-                enabled = ValueAnimator.areAnimatorsEnabled()
-            }
-        }
-        context.contentResolver.registerContentObserver(
+    MotionSetting.ensureObserved(LocalContext.current)
+    return MotionSetting.enabled
+}
+
+private object MotionSetting {
+    private val enabledState = mutableStateOf(ValueAnimator.areAnimatorsEnabled())
+    val enabled: Boolean get() = enabledState.value
+    private var observedContext: Context? = null
+
+    fun ensureObserved(context: Context) {
+        val appContext = context.applicationContext
+        if (observedContext === appContext) return
+        observedContext = appContext
+        appContext.contentResolver.registerContentObserver(
             Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE),
             false,
-            observer,
+            object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) {
+                    enabledState.value = ValueAnimator.areAnimatorsEnabled()
+                }
+            },
         )
-        onDispose { context.contentResolver.unregisterContentObserver(observer) }
     }
-    return enabled
 }
 
 /** Expressive press feedback: 0.95 scale driven by the same spring as the theme. */

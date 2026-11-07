@@ -101,6 +101,20 @@ class PlaybackEngineTest {
     }
 
     @Test
+    fun `seeking while paused resumes at the sought frame`() = runTest {
+        val backend = FakeBackend(supportedRates = setOf(44_100))
+        val engine = PlaybackEngine(backend, this)
+        engine.setQueue(listOf(track(1, 44_100, durationMs = 60_000L)), 0)
+        engine.pause()
+        engine.seekTo(30_000L)
+        engine.play()
+
+        assertEquals(PlaybackStatus.READY, engine.state.first().status)
+        assertEquals(30_000L, engine.state.first().positionMs)
+        assertEquals(1_323_000L, backend.lastStartFrame)
+    }
+
+    @Test
     fun `disabling gapless suppresses pre-enqueue near track end`() = runTest {
         val backend = FakeBackend(supportedRates = setOf(96_000))
         val engine = PlaybackEngine(backend, this)
@@ -125,6 +139,18 @@ class PlaybackEngineTest {
         assertTrue(second != null && third != null)
         assertEquals(second, queue.previous())
         assertEquals(30L, queue.previous())
+    }
+
+    @Test
+    fun `missing dac keeps the selected track instead of advancing`() = runTest {
+        val backend = FakeBackend(dacConnected = false)
+        val engine = PlaybackEngine(backend, this)
+        engine.setQueue(listOf(track(1), track(2), track(3)), 1)
+
+        val state = engine.state.first()
+        assertEquals(PlaybackStatus.NO_DAC, state.status)
+        assertEquals(2L, state.track?.id)
+        assertEquals(1, engine.currentQueueIndex.value)
     }
 
     @Test

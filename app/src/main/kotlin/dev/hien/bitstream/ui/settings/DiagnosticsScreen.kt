@@ -28,6 +28,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +52,7 @@ import dev.hien.bitstream.core.playback.engine.PlaybackError
 import dev.hien.bitstream.core.playback.usb.DacState
 import dev.hien.bitstream.core.playback.usb.SyncType
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 data class DiagnosticsSummary(
     val uacVersion: String,
@@ -153,6 +155,12 @@ fun DiagnosticsScreen(
     }
     val context = LocalContext.current
     var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(2_000)
+            copied = false
+        }
+    }
 
     Column(
         modifier = Modifier

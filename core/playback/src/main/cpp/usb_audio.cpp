@@ -22,7 +22,9 @@
 namespace {
 
 constexpr const char* kTag = "BitstreamUsb";
-constexpr int kUrbCount = 4;
+// 8 URBs keep ~16 ms of audio in flight, so a scheduler gap under UI load
+// does not starve the endpoint; the added latency is inaudible.
+constexpr int kUrbCount = 8;
 constexpr int kPacketsPerUrb = 16;
 constexpr int kControlTimeoutMs = 1000;
 constexpr int kMaxErrors = 8;
@@ -737,13 +739,28 @@ extern "C" int64_t bitstream_usb_open(int fd, int endpoint, int interface_number
         return 0;
     }
 
+    // A DAC attached after launch may still be mid-configuration by Android's
+    // USB audio HAL, leaving the streaming interface on an active alt setting.
+    // Reset to alt 0 before changing the clock: some devices ignore SET_CUR
+    // while their stream is running, which leaves playback at the previous
+    // (system) rate and produces noise. bitstream_usb_set_sample_rate already
+    // does this for later rate switches.
+    result = libusb_set_interface_alt_setting(handle->device, handle->streaming_interface, 0);
+    if (result < 0) {
+        LOGW("reset alt setting 0 before rate change failed: %d", result);
+    }
+
     result = set_sample_rate(handle);
     if (result < 0) {
         close_handle(handle);
         return 0;
     }
+    const int applied_rate = read_sample_rate(handle);
     LOGI("clock source %d current rate: %d Hz (requested %d)",
-         handle->clock_source_id, read_sample_rate(handle), handle->sample_rate);
+         handle->clock_source_id, applied_rate, handle->sample_rate);
+    if (applied_rate > 0 && applied_rate != handle->sample_rate) {
+        LOGW("DAC reports %d Hz after requesting %d Hz", applied_rate, handle->sample_rate);
+    }
 
     result = libusb_set_interface_alt_setting(handle->device, handle->streaming_interface,
                                               handle->alt_setting);
