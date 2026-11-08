@@ -9,6 +9,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -43,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -208,12 +210,26 @@ fun BitstreamApp() {
         // edge is recorded here and both paths read the same direction.
         val lastSwipeEdge = remember { mutableIntStateOf(EDGE_NONE) }
         fun swipeExitDirection(edge: Int) = if (edge == EDGE_LEFT) -1 else 1
+        // Predictive-back previews must match what the committed pop will run
+        // (per-destination classic transitions), or commit visibly swaps
+        // patterns mid-gesture. Route both through the same route-based pick.
+        val detailRoutes = setOf(
+            ALBUM_DETAIL_ROUTE, ARTIST_DETAIL_ROUTE, USB_DEBUG_ROUTE, FAVORITES_ROUTE, NOW_PLAYING_ROUTE,
+        )
+        fun AnimatedContentTransitionScope<NavBackStackEntry>.beneathIsDetail() =
+            targetState.destination.route in detailRoutes
+        fun AnimatedContentTransitionScope<NavBackStackEntry>.exitingIsDetail() =
+            initialState.destination.route in detailRoutes
         val predictivePopEnter: AnimatedContentTransitionScope<NavBackStackEntry>.(Int) -> EnterTransition =
-            { detailPopEnter(spatial, effects) }
+            { if (beneathIsDetail()) detailPopEnter(spatial, effects) else fadeThroughEnter() }
         val predictivePopExit: AnimatedContentTransitionScope<NavBackStackEntry>.(Int) -> ExitTransition =
             { swipeEdge ->
                 lastSwipeEdge.intValue = swipeEdge
-                detailPopExit(exitSlide, spatial, exitDirection = swipeExitDirection(swipeEdge))
+                if (exitingIsDetail()) {
+                    detailPopExit(exitSlide, spatial, exitDirection = swipeExitDirection(swipeEdge))
+                } else {
+                    fadeThroughExit()
+                }
             }
         BoxWithConstraints(
             modifier = Modifier
@@ -228,14 +244,31 @@ fun BitstreamApp() {
             // apps. The scaffold then consumes only horizontal insets; the rail
             // branch pads its content below the top inset itself.
             val railChrome = showNavigation && maxWidth >= 600.dp
-            if (railChrome) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(if (maxHeight < 600.dp) 80.dp else 96.dp)
-                        .background(MaterialTheme.colorScheme.surfaceContainer)
-                        .align(Alignment.CenterStart),
+            if (maxWidth >= 600.dp) {
+                // Animate the strip's width (not AnimatedVisibility) so a window
+                // resize across the 600 dp breakpoint slides the rail open/shut
+                // instead of snapping, and so the strip is never absent at the
+                // frame the rail it backs appears.
+                val chromeWidth by animateDpAsState(
+                    targetValue = if (railChrome) {
+                        if (maxHeight < 600.dp) 80.dp else 96.dp
+                    } else {
+                        0.dp
+                    },
+                    // Same physics as the rail's own shrink in the scaffold so
+                    // strip, rail, and gutter collapse as one panel.
+                    animationSpec = spring<Dp>(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow),
+                    label = "railChromeWidth",
                 )
+                if (chromeWidth > 0.dp) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(chromeWidth)
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                            .align(Alignment.CenterStart),
+                    )
+                }
             }
             AdaptiveNavigationScaffold(
                 items = navItems,
@@ -260,10 +293,10 @@ fun BitstreamApp() {
                     ) {
                         composable(
                             route = Destination.Library.route,
-                            enterTransition = { fadeThroughEnter(effects) },
-                            exitTransition = { fadeThroughExit(effects) },
-                            popEnterTransition = { fadeThroughEnter(effects) },
-                            popExitTransition = { fadeThroughExit(effects) },
+                            enterTransition = { fadeThroughEnter() },
+                            exitTransition = { fadeThroughExit() },
+                            popEnterTransition = { fadeThroughEnter() },
+                            popExitTransition = { fadeThroughExit() },
                         ) {
                             LibraryRoute(
                                 onTrack = container::playTrack,
@@ -286,10 +319,10 @@ fun BitstreamApp() {
                         }
                         composable(
                             route = Destination.Search.route,
-                            enterTransition = { fadeThroughEnter(effects) },
-                            exitTransition = { fadeThroughExit(effects) },
-                            popEnterTransition = { fadeThroughEnter(effects) },
-                            popExitTransition = { fadeThroughExit(effects) },
+                            enterTransition = { fadeThroughEnter() },
+                            exitTransition = { fadeThroughExit() },
+                            popEnterTransition = { fadeThroughEnter() },
+                            popExitTransition = { fadeThroughExit() },
                         ) {
                             SearchRoute(
                                 onTrack = container::playTrack,
@@ -333,19 +366,19 @@ fun BitstreamApp() {
                         }
                         composable(
                             route = Destination.Playlists.route,
-                            enterTransition = { fadeThroughEnter(effects) },
-                            exitTransition = { fadeThroughExit(effects) },
-                            popEnterTransition = { fadeThroughEnter(effects) },
-                            popExitTransition = { fadeThroughExit(effects) },
+                            enterTransition = { fadeThroughEnter() },
+                            exitTransition = { fadeThroughExit() },
+                            popEnterTransition = { fadeThroughEnter() },
+                            popExitTransition = { fadeThroughExit() },
                         ) {
                             PlaylistsRoute(onTrack = container::playTrack)
                         }
                         composable(
                             route = Destination.Settings.route,
-                            enterTransition = { fadeThroughEnter(effects) },
-                            exitTransition = { fadeThroughExit(effects) },
-                            popEnterTransition = { fadeThroughEnter(effects) },
-                            popExitTransition = { fadeThroughExit(effects) },
+                            enterTransition = { fadeThroughEnter() },
+                            exitTransition = { fadeThroughExit() },
+                            popEnterTransition = { fadeThroughEnter() },
+                            popExitTransition = { fadeThroughExit() },
                         ) {
                             SettingsRoute(
                                 onUsbDiagnostics = { navController.navigate(USB_DEBUG_ROUTE) },
@@ -420,8 +453,11 @@ fun BitstreamApp() {
                         onPrevious = nowPlayingViewModel::previous,
                         onNext = nowPlayingViewModel::next,
                         // The rail layout lets content flow to the window edge,
-                        // so the floating bar must clear the system nav bar itself.
-                        modifier = if (railChrome) {
+                        // so the floating bar must clear the system nav bar
+                        // itself. Keyed on the width class (stable while the
+                        // player opens/closes) rather than railChrome, which
+                        // flips mid-exit and would hop the bar mid-slide.
+                        modifier = if (maxWidth >= 600.dp) {
                             Modifier.windowInsetsPadding(
                                 WindowInsets.navigationBars.only(WindowInsetsSides.Bottom),
                             )

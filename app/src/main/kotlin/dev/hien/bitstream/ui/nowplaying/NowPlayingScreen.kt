@@ -76,6 +76,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.BitstreamTheme
+import dev.hien.bitstream.core.designsystem.GoogleSansFlex
 import dev.hien.bitstream.core.designsystem.Radii
 import dev.hien.bitstream.core.designsystem.WaveformSeek
 import dev.hien.bitstream.core.designsystem.formatPlaybackTime
@@ -325,28 +326,41 @@ private class PlayerCallbacks(
 )
 
 private val panelTitle = TextStyle(
+    fontFamily = GoogleSansFlex,
     fontSize = 34.sp,
     lineHeight = 40.sp,
     fontWeight = FontWeight(700),
     letterSpacing = (-0.3).sp,
 )
-private val panelArtist = TextStyle(fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight(500))
+private val panelArtist = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight(500))
 private val bigTitle = TextStyle(
+    fontFamily = GoogleSansFlex,
     fontSize = 44.sp,
     lineHeight = 52.sp,
     fontWeight = FontWeight(700),
     letterSpacing = (-0.5).sp,
 )
-private val bigArtist = TextStyle(fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight(500))
+private val bigArtist = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight(500))
 private val landscapeTitle = TextStyle(
+    fontFamily = GoogleSansFlex,
     fontSize = 32.sp,
     lineHeight = 38.sp,
     fontWeight = FontWeight(700),
     letterSpacing = (-0.3).sp,
 )
-private val portraitHeaderLabel = TextStyle(fontSize = 13.sp, lineHeight = 18.sp)
-private val portraitHeaderFolder = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight(600))
-private val landscapeHeaderFolder = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight(600))
+private val portraitHeaderLabel = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 13.sp, lineHeight = 18.sp)
+private val portraitHeaderFolder = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight(600))
+private val landscapeHeaderFolder = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 14.sp, lineHeight = 20.sp, fontWeight = FontWeight(600))
 
 @Composable
 private fun PhonePortraitPlayer(state: NowPlayingUiState, c: PlayerCallbacks) {
@@ -963,13 +977,17 @@ private fun UpNextTablet(upNext: List<Track>, onQueue: () -> Unit) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = track.title,
-                                style = TextStyle(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight(600)),
+                                style = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight(600)),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
                                 text = track.artist.ifBlank { track.album },
-                                style = TextStyle(fontSize = 15.sp, lineHeight = 20.sp),
+                                style = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 15.sp, lineHeight = 20.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -1177,7 +1195,9 @@ private val miniPhone = MiniMetrics(
     padTop = 10.dp,
     padBottom = 10.dp,
     art = 52.dp,
-    titleStyle = TextStyle(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight(600)),
+    titleStyle = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight(600)),
     playWidth = 56.dp,
     playHeight = 52.dp,
     playOnRadius = 18.dp,
@@ -1213,7 +1233,9 @@ private val miniTabletLandscape = MiniMetrics(
     padTop = 12.dp,
     padBottom = 12.dp,
     art = 56.dp,
-    titleStyle = TextStyle(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight(600)),
+    titleStyle = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight(600)),
     playWidth = 76.dp,
     playHeight = 56.dp,
     playOnRadius = 20.dp,
@@ -1230,7 +1252,9 @@ private val miniTabletPortrait = miniTabletLandscape.copy(
     padTop = 14.dp,
     padBottom = 14.dp,
     art = 60.dp,
-    titleStyle = TextStyle(fontSize = 19.sp, lineHeight = 26.sp, fontWeight = FontWeight(600)),
+    titleStyle = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 19.sp, lineHeight = 26.sp, fontWeight = FontWeight(600)),
     playWidth = 80.dp,
     playHeight = 60.dp,
     playOnRadius = 20.dp,

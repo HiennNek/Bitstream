@@ -46,7 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
+import dev.hien.bitstream.core.designsystem.GoogleSansCode
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -574,7 +574,7 @@ private fun DescriptorSection(rawDescriptor: ByteArray) {
                             .horizontalScroll(rememberScrollState())
                             .padding(Spacing.md),
                         style = MaterialTheme.typography.bodySmall,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = GoogleSansCode,
                         softWrap = false,
                     )
                 }

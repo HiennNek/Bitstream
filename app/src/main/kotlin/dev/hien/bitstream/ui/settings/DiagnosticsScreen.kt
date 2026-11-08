@@ -39,7 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
+import dev.hien.bitstream.core.designsystem.GoogleSansCode
 import androidx.compose.ui.unit.dp
 import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
 import dev.hien.bitstream.core.designsystem.LabeledValueRow
@@ -294,7 +294,7 @@ fun DiagnosticsScreen(
                                             .horizontalScroll(rememberScrollState())
                                             .padding(Spacing.md),
                                         style = MaterialTheme.typography.bodySmall,
-                                        fontFamily = FontFamily.Monospace,
+                                        fontFamily = GoogleSansCode,
                                         softWrap = false,
                                     )
                                 }

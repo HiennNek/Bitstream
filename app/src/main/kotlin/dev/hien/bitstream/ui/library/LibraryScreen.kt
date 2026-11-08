@@ -75,6 +75,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.BitstreamEmptyState
+import dev.hien.bitstream.core.designsystem.GoogleSansFlex
 import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
 import dev.hien.bitstream.core.designsystem.BitstreamSearchPill
 import dev.hien.bitstream.core.designsystem.BitstreamTheme
@@ -231,33 +232,43 @@ private val shortcuts = listOf(
     Triple("Folders", LibraryAction.Folders, MaterialShapes.Cookie12Sided),
 )
 
-private val phoneSection = TextStyle(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight(650))
+private val phoneSection = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight(650))
 private val phoneLandscapeCardTitle = TextStyle(
+    fontFamily = GoogleSansFlex,
     fontSize = 19.sp,
     lineHeight = 24.sp,
     fontWeight = FontWeight(700),
     letterSpacing = (-0.2).sp,
 )
 private val tabletCardTitle = TextStyle(
+    fontFamily = GoogleSansFlex,
     fontSize = 24.sp,
     lineHeight = 30.sp,
     fontWeight = FontWeight(700),
     letterSpacing = (-0.2).sp,
 )
 private val portraitCardTitle = TextStyle(
+    fontFamily = GoogleSansFlex,
     fontSize = 22.sp,
     lineHeight = 28.sp,
     fontWeight = FontWeight(700),
     letterSpacing = (-0.2).sp,
 )
 private val portraitTableCellTitle = TextStyle(
+    fontFamily = GoogleSansFlex,
     fontSize = 28.sp,
     lineHeight = 34.sp,
     fontWeight = FontWeight(700),
     letterSpacing = (-0.3).sp,
 )
-private val tabletLabel = TextStyle(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight(600))
-private val tabletRowTitle = TextStyle(fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight(600))
+private val tabletLabel = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight(600))
+private val tabletRowTitle = TextStyle(
+    fontFamily = GoogleSansFlex,
+    fontSize = 17.sp, lineHeight = 24.sp, fontWeight = FontWeight(600))
 
 @Composable
 private fun CompactLibrary(
@@ -652,6 +663,7 @@ private fun ExpandedLibrary(
 }
 
 private val tabletSection = TextStyle(
+    fontFamily = GoogleSansFlex,
     fontSize = 24.sp,
     lineHeight = 32.sp,
     fontWeight = FontWeight(650),

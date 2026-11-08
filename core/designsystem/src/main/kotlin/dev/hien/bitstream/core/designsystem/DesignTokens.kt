@@ -3,6 +3,9 @@ package dev.hien.bitstream.core.designsystem
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -68,12 +71,23 @@ object Radii {
 }
 
 /**
- * Cross-fade used when switching between top-level destinations. The caller
- * supplies its timing from [androidx.compose.material3.MotionScheme].
+ * M3 fade-through used when switching between top-level destinations: the
+ * outgoing screen fades out in 90 ms, then the incoming one fades in over
+ * 210 ms (scaled up from 92%). The stagger is the pattern's defining trait —
+ * a plain cross-fade holds both screens half-transparent at once and reads
+ * as ghosting. Timings are the canonical M3 fade-through pair; springs cannot
+ * express a delay, so these are the one place the app uses tweens.
  */
-fun fadeThroughEnter(spec: FiniteAnimationSpec<Float>): EnterTransition = fadeIn(spec)
+fun fadeThroughEnter(): EnterTransition = fadeIn(
+    animationSpec = tween(210, delayMillis = 90, easing = LinearOutSlowInEasing),
+) + scaleIn(
+    animationSpec = tween(210, delayMillis = 90, easing = LinearOutSlowInEasing),
+    initialScale = 0.92f,
+)
 
-fun fadeThroughExit(spec: FiniteAnimationSpec<Float>): ExitTransition = fadeOut(spec)
+fun fadeThroughExit(): ExitTransition = fadeOut(
+    animationSpec = tween(90, easing = FastOutLinearInEasing),
+)
 
 /**
  * M3 forward/back pair for detail screens (album, artist, now playing,

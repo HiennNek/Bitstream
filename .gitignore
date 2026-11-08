@@ -13,3 +13,8 @@ local.properties
 .agents/
 skills-lock.json
 gradle/gradle-daemon-jvm.properties
+
+# Release signing (never commit)
+keystore.properties
+*.keystore
+*.jks

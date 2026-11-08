@@ -1,5 +1,15 @@
 package dev.hien.bitstream.ui.adaptive
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -25,8 +35,11 @@ import androidx.compose.material3.ShortNavigationBar
 import androidx.compose.material3.ShortNavigationBarItem
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import dev.hien.bitstream.core.designsystem.NavChrome
@@ -74,6 +87,10 @@ fun AdaptiveNavigationScaffold(
             } else {
                 navChromeFor(maxWidth.value.toInt())
             }
+            // Chrome dismiss/restore rides the theme's fast effects spring
+            // (critically damped, no bounce) with a critically damped slide.
+            val fade = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+            val slide = spring<IntSize>(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow)
             when (chrome) {
                 NavChrome.BAR -> {
                     // Keep content in the same slot whether or not the bar is
@@ -87,7 +104,14 @@ fun AdaptiveNavigationScaffold(
                         ) {
                             content()
                         }
-                        if (showNavigation) {
+                        // The bar slides down out of sight when the player takes
+                        // the screen (M3's chrome-dismiss pattern) instead of
+                        // snapping away (expandVertically anchors to the bottom).
+                        AnimatedVisibility(
+                            visible = showNavigation,
+                            enter = expandVertically(animationSpec = slide) + fadeIn(fade),
+                            exit = shrinkVertically(animationSpec = slide) + fadeOut(fade),
+                        ) {
                             ShortNavigationBar(
                                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                                 modifier = Modifier.testTag("navigation_bar"),
@@ -107,7 +131,15 @@ fun AdaptiveNavigationScaffold(
 
                 NavChrome.RAIL -> {
                     Row(modifier = Modifier.fillMaxSize()) {
-                        if (showNavigation) {
+                        // Same dismiss pattern as the bar. expandHorizontally/
+                        // shrinkHorizontally default to Alignment.End — the
+                        // content side — so anchor the collapse to the leading
+                        // window edge explicitly.
+                        AnimatedVisibility(
+                            visible = showNavigation,
+                            enter = expandHorizontally(animationSpec = slide, expandFrom = Alignment.Start) + fadeIn(fade),
+                            exit = shrinkHorizontally(animationSpec = slide, shrinkTowards = Alignment.Start) + fadeOut(fade),
+                        ) {
                             // Rail draws at the true window edges: the parent
                             // consumes no top inset in rail layouts, so its
                             // container color fills the status-bar / caption
@@ -142,7 +174,17 @@ fun AdaptiveNavigationScaffold(
                                     // Gutter between the rail and content; screens
                                     // carry their own 16 dp start padding, so this
                                     // evens the left gap with the ~24 dp right one.
-                                    if (showNavigation) Modifier.padding(start = 16.dp) else Modifier,
+                                    // Animated with the rail so content doesn't
+                                    // jump 16 dp ahead of the collapsing panel.
+                                    Modifier.padding(
+                                        start = animateDpAsState(
+                                            targetValue = if (showNavigation) 16.dp else 0.dp,
+                                            // Same physics as the rail's shrink so
+                                            // the gutter tracks the panel edge.
+                                            animationSpec = spring<Dp>(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow),
+                                            label = "railGutter",
+                                        ).value,
+                                    ),
                                 )
                                 .then(
                                     // Rail layouts have no bar to consume the
@@ -151,7 +193,11 @@ fun AdaptiveNavigationScaffold(
                                     // under the bottom inset so rows reach the
                                     // window edge beneath the floating mini player.
                                     // Full-screen player layouts handle insets
-                                    // themselves when the rail is hidden.
+                                    // themselves when the rail is hidden. This and
+                                    // the outer scaffold's top pad are a balanced
+                                    // pair: when the rail hides, the outer one adds
+                                    // the same inset this one drops, so animating
+                                    // either side alone would double-count mid-flight.
                                     if (showNavigation) {
                                         Modifier.windowInsetsPadding(
                                             WindowInsets.safeDrawing.only(

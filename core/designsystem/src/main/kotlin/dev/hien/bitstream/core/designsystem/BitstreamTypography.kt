@@ -10,12 +10,24 @@ import androidx.compose.ui.unit.sp
 
 /**
  * The mockup's type ramp. Every size, line height, weight and tracking below is
- * taken from `mork.html`; Roboto Flex supplies the variable weights.
+ * taken from `mork.html`; Google Sans Flex supplies the variable weights at
+ * the font's default roundness.
  */
-private val RobotoFlex = FontFamily(
+val GoogleSansFlex = FontFamily(
     listOf(400, 500, 600, 650, 700, 750).map { weight ->
         Font(
-            resId = R.font.roboto_flex,
+            resId = R.font.google_sans_flex,
+            weight = FontWeight(weight),
+            variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
+        )
+    },
+)
+
+/** Monospace companion for hex/log dumps — keeps the app off system fonts. */
+val GoogleSansCode = FontFamily(
+    listOf(400, 500).map { weight ->
+        Font(
+            resId = R.font.google_sans_code,
             weight = FontWeight(weight),
             variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
         )
@@ -28,7 +40,7 @@ private fun style(
     weight: Int,
     tracking: Float = 0f,
 ): TextStyle = TextStyle(
-    fontFamily = RobotoFlex,
+    fontFamily = GoogleSansFlex,
     fontSize = size.sp,
     lineHeight = line.sp,
     fontWeight = FontWeight(weight),
