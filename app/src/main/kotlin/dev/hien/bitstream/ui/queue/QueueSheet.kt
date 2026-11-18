@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
@@ -52,10 +53,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.hien.bitstream.LocalAppContainer
+import kotlin.math.roundToInt
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.Radii
 import dev.hien.bitstream.core.designsystem.Spacing
 import dev.hien.bitstream.core.designsystem.formatRateDepth
+import dev.hien.bitstream.core.designsystem.segmentedItemShape
 import dev.hien.bitstream.core.model.RepeatMode
 import dev.hien.bitstream.core.model.Track
 
@@ -187,7 +190,7 @@ fun QueuePane(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f, fill = false),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 itemsIndexed(
                     items = state.items,
@@ -232,8 +235,12 @@ private fun QueueRow(
         },
     )
 
-    var dragAccumulatorPx by remember(index) { mutableFloatStateOf(0f) }
+    // Live drag feedback: the row follows the finger vertically; on release we
+    // commit one move based on the net displacement instead of stepping mid-drag.
+    var dragOffsetPx by remember(index) { mutableFloatStateOf(0f) }
     val rowStepPx = 120f
+
+    val rowShape = segmentedItemShape(index, totalCount)
 
     SwipeToDismissBox(
         state = dismissState,
@@ -243,7 +250,7 @@ private fun QueueRow(
                     .fillMaxSize()
                     // Match the row clip so the error container cannot peek
                     // through the corners while idle.
-                    .clip(RoundedCornerShape(Radii.tile))
+                    .clip(rowShape)
                     .background(MaterialTheme.colorScheme.errorContainer)
                     .padding(horizontal = Spacing.xl),
                 contentAlignment = Alignment.CenterEnd,
@@ -259,13 +266,14 @@ private fun QueueRow(
         val containerColor = if (isCurrent) {
             MaterialTheme.colorScheme.secondaryContainer
         } else {
-            MaterialTheme.colorScheme.surfaceContainerLow
+            MaterialTheme.colorScheme.surfaceContainerHigh
         }
 
         ListItem(
             modifier = Modifier
                 .heightIn(min = 64.dp)
-                .clip(RoundedCornerShape(Radii.tile))
+                .graphicsLayer { translationY = dragOffsetPx }
+                .clip(rowShape)
                 .clickable(onClick = onPlay)
                 .testTag("queue_row_${track.id}"),
             colors = ListItemDefaults.colors(containerColor = containerColor),
@@ -275,18 +283,18 @@ private fun QueueRow(
                         .size(36.dp)
                         .pointerInput(index, totalCount) {
                             detectVerticalDragGestures(
-                                onDragEnd = { dragAccumulatorPx = 0f },
-                                onDragCancel = { dragAccumulatorPx = 0f },
+                                onDragEnd = {
+                                    val steps = (dragOffsetPx / rowStepPx).roundToInt()
+                                    dragOffsetPx = 0f
+                                    if (steps != 0) {
+                                        val target = (index + steps).coerceIn(0, totalCount - 1)
+                                        if (target != index) onMove(index, target)
+                                    }
+                                },
+                                onDragCancel = { dragOffsetPx = 0f },
                                 onVerticalDrag = { change, dragAmount ->
                                     change.consume()
-                                    dragAccumulatorPx += dragAmount
-                                    if (dragAccumulatorPx >= rowStepPx && index < totalCount - 1) {
-                                        dragAccumulatorPx = 0f
-                                        onMove(index, index + 1)
-                                    } else if (dragAccumulatorPx <= -rowStepPx && index > 0) {
-                                        dragAccumulatorPx = 0f
-                                        onMove(index, index - 1)
-                                    }
+                                    dragOffsetPx += dragAmount
                                 },
                             )
                         },

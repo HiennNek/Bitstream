@@ -449,11 +449,7 @@ class NativeAudioBackend(
         return when (md5State) {
             MD5_VERIFIED -> Integrity.VERIFIED
             MD5_FAILED -> Integrity.FAILED
-            else -> when {
-                track?.hasMd5 != true -> Integrity.UNAVAILABLE
-                startFrameOffset > 0L -> Integrity.PARTIAL
-                else -> Integrity.PARTIAL
-            }
+            else -> if (track?.hasMd5 == true) Integrity.PARTIAL else Integrity.UNAVAILABLE
         }
     }
 

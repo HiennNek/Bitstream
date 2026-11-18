@@ -1,6 +1,11 @@
 package dev.hien.bitstream.ui.playlists
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
@@ -19,15 +24,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -57,8 +64,14 @@ import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.BitstreamEmptyState
 import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
-import dev.hien.bitstream.core.designsystem.Radii
+import dev.hien.bitstream.core.designsystem.LocalBottomOverlayPadding
 import dev.hien.bitstream.core.designsystem.Spacing
+import dev.hien.bitstream.core.designsystem.TopBarBackButton
+import dev.hien.bitstream.core.designsystem.detailEnter
+import dev.hien.bitstream.core.designsystem.detailExit
+import dev.hien.bitstream.core.designsystem.detailPopEnter
+import dev.hien.bitstream.core.designsystem.detailPopExit
+import dev.hien.bitstream.core.designsystem.segmentedItemShape
 import dev.hien.bitstream.core.model.Track
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
@@ -111,6 +124,7 @@ fun PlaylistsRoute(onTrack: (Long) -> Unit) {
     )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PlaylistsScreen(
     state: PlaylistsUiState,
@@ -126,21 +140,40 @@ fun PlaylistsScreen(
     onTrack: (Long) -> Unit = {},
 ) {
     val selected = state.playlists.firstOrNull { it.id == state.selectedId }
-    if (selected == null) {
-        PlaylistList(state = state, onSelect = onSelect, onCreate = onCreate)
-    } else {
-        PlaylistDetail(
-            playlist = selected,
-            state = state,
-            libraryTracks = libraryTracks,
-            onBack = onBack,
-            onRename = onRename,
-            onDelete = onDelete,
-            onAddTrack = onAddTrack,
-            onMove = onMove,
-            onRemove = onRemove,
-            onTrack = onTrack,
-        )
+    val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    val dampedSpatial = spring<Float>(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow)
+    val dampedSlide = spring<IntOffset>(dampingRatio = 1f, stiffness = Spring.StiffnessMediumLow)
+
+    AnimatedContent(
+        targetState = selected,
+        contentKey = { it?.id },
+        transitionSpec = {
+            if (targetState != null) {
+                detailEnter(dampedSlide, effects).togetherWith(detailExit(dampedSlide, effects))
+            } else {
+                detailPopEnter(dampedSpatial, effects)
+                    .togetherWith(detailPopExit(dampedSlide, dampedSpatial, effects))
+                    .using(SizeTransform(clip = false))
+            }
+        },
+        label = "playlistDetail",
+    ) { current ->
+        if (current == null) {
+            PlaylistList(state = state, onSelect = onSelect, onCreate = onCreate)
+        } else {
+            PlaylistDetail(
+                playlist = current,
+                state = state,
+                libraryTracks = libraryTracks,
+                onBack = onBack,
+                onRename = onRename,
+                onDelete = onDelete,
+                onAddTrack = onAddTrack,
+                onMove = onMove,
+                onRemove = onRemove,
+                onTrack = onTrack,
+            )
+        }
     }
 }
 
@@ -152,14 +185,18 @@ private fun PlaylistList(
     onCreate: (String) -> Unit,
 ) {
     var showCreate by rememberSaveable { mutableStateOf(false) }
+    val bottomOverlay = LocalBottomOverlayPadding.current
 
     Scaffold(
-        // The app scaffold already keeps this content above the nav bar and the
-        // mini player; adding the system inset again would double the gap.
+        // The app scaffold already keeps this content above the nav bar;
+        // adding the system inset again would double the gap.
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = { BitstreamLargeHeader(title = "Playlists") },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showCreate = true }) {
+            FloatingActionButton(
+                onClick = { showCreate = true },
+                modifier = Modifier.padding(bottom = bottomOverlay),
+            ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_add),
                     contentDescription = "New playlist",
@@ -182,19 +219,23 @@ private fun PlaylistList(
                     .fillMaxSize()
                     .padding(padding),
                 contentPadding = PaddingValues(
-                    start = Spacing.md,
-                    end = Spacing.md,
-                    bottom = Spacing.xxl,
+                    start = Spacing.screen,
+                    end = Spacing.screen,
+                    top = Spacing.sm,
+                    bottom = Spacing.xxl + bottomOverlay,
                 ),
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                items(state.playlists, key = { it.id }) { playlist ->
+                itemsIndexed(state.playlists, key = { _, item -> item.id }) { index, playlist ->
                     ListItem(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(min = 64.dp)
-                            .clip(RoundedCornerShape(Radii.tile))
+                            .clip(segmentedItemShape(index, state.playlists.size))
                             .clickable { onSelect(playlist.id) },
+                        colors = ListItemDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ),
                         content = {
                             Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         },
@@ -236,26 +277,28 @@ private fun PlaylistDetail(
     var showDelete by rememberSaveable { mutableStateOf(false) }
     var showAddTracks by rememberSaveable { mutableStateOf(false) }
     val tracksById = remember(state.tracks) { state.tracks.associateBy { it.id } }
+    val bottomOverlay = LocalBottomOverlayPadding.current
 
     Column(modifier = Modifier.fillMaxSize()) {
-        BitstreamLargeHeader(title = playlist.name) {
-            IconButton(onClick = onBack) {
-                Icon(
+        BitstreamLargeHeader(
+            title = playlist.name,
+            navigationIcon = {
+                TopBarBackButton(
+                    onClick = onBack,
                     painter = painterResource(R.drawable.ic_arrow_back),
-                    contentDescription = "Back",
                 )
-            }
-        }
+            },
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState())
-                .padding(horizontal = Spacing.lg),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+                .padding(horizontal = Spacing.screen, vertical = Spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.sm),
         ) {
-            TextButton(onClick = { showAddTracks = true }) { Text("Add tracks") }
-            TextButton(onClick = { showRename = true }) { Text("Rename") }
-            TextButton(onClick = { showDelete = true }) {
+            FilledTonalButton(onClick = { showAddTracks = true }) { Text("Add tracks") }
+            OutlinedButton(onClick = { showRename = true }) { Text("Rename") }
+            OutlinedButton(onClick = { showDelete = true }) {
                 Text("Delete", color = MaterialTheme.colorScheme.error)
             }
         }
@@ -274,11 +317,11 @@ private fun PlaylistDetail(
                     .fillMaxSize()
                     .weight(1f),
                 contentPadding = PaddingValues(
-                    start = Spacing.md,
-                    end = Spacing.md,
-                    bottom = Spacing.xxl,
+                    start = Spacing.screen,
+                    end = Spacing.screen,
+                    bottom = Spacing.xxl + bottomOverlay,
                 ),
-                verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 itemsIndexed(
                     items = state.entries,
@@ -300,6 +343,7 @@ private fun PlaylistDetail(
     if (showAddTracks) {
         AlertDialog(
             onDismissRequest = { showAddTracks = false },
+            shape = MaterialTheme.shapes.extraLarge,
             title = { Text("Add tracks to ${playlist.name}") },
             text = {
                 if (libraryTracks.isEmpty()) {
@@ -347,6 +391,7 @@ private fun PlaylistDetail(
     if (showDelete) {
         AlertDialog(
             onDismissRequest = { showDelete = false },
+            shape = MaterialTheme.shapes.extraLarge,
             title = { Text("Delete playlist?") },
             text = { Text("This removes the playlist, not the FLAC files.") },
             confirmButton = {
@@ -384,8 +429,11 @@ private fun PlaylistEntryRow(
             // Offset before clip so a dragged row is not cut off by its slot.
             .offset { IntOffset(0, dragY.roundToInt()) }
             .zIndex(if (dragY != 0f) 1f else 0f)
-            .clip(RoundedCornerShape(Radii.tile))
+            .clip(segmentedItemShape(index, count))
             .clickable(onClick = onPlay),
+        colors = ListItemDefaults.colors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ),
         leadingContent = { Text("${index + 1}") },
         content = {
             Text(
@@ -455,6 +503,7 @@ private fun NameDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = MaterialTheme.shapes.extraLarge,
         title = { Text(title) },
         text = {
             OutlinedTextField(

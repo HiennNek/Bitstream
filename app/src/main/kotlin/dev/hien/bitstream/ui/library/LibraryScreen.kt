@@ -2,7 +2,6 @@ package dev.hien.bitstream.ui.library
 
 import android.content.Intent
 import android.content.res.Configuration
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -24,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -31,19 +31,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
-import androidx.compose.material3.adaptive.layout.AnimatedPane
-import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
-import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
-import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
 import androidx.compose.material3.carousel.rememberCarouselState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -80,8 +76,11 @@ import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
 import dev.hien.bitstream.core.designsystem.BitstreamSearchPill
 import dev.hien.bitstream.core.designsystem.BitstreamTheme
 import dev.hien.bitstream.core.designsystem.BitstreamTile
+import dev.hien.bitstream.core.designsystem.LocalBottomOverlayPadding
+import dev.hien.bitstream.core.designsystem.Spacing
 import dev.hien.bitstream.core.designsystem.formatPlaybackTime
 import dev.hien.bitstream.core.designsystem.formatRateDepth
+import dev.hien.bitstream.core.designsystem.segmentedItemShape
 import dev.hien.bitstream.core.designsystem.trackHue
 import dev.hien.bitstream.core.designsystem.trackPalette
 import dev.hien.bitstream.core.model.Album
@@ -89,10 +88,10 @@ import dev.hien.bitstream.core.model.Track
 import dev.hien.bitstream.ui.components.CoverArt
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 fun LibraryRoute(
     onTrack: (Long) -> Unit,
+    onArtist: (String) -> Unit = {},
     onSearch: () -> Unit,
     onFavorites: () -> Unit,
     onSettings: () -> Unit,
@@ -126,68 +125,17 @@ fun LibraryRoute(
         }
     }
 
-    val navigator = rememberListDetailPaneScaffoldNavigator<String>()
-    BackHandler(enabled = navigator.canNavigateBack()) {
-        scope.launch { navigator.navigateBack() }
-    }
-
-    val listContent: @Composable () -> Unit = {
-        LibraryScreen(
-            state = state,
-            onTrack = onTrack,
-            onArtist = { artist ->
-                scope.launch {
-                    navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, "artist:$artist")
-                }
-            },
-            onPickFolder = { picker.launch(null) },
-            onSearch = onSearch,
-            onFavorites = onFavorites,
-            onShuffleAll = { container.playTracks(state.tracks, shuffle = true) },
-            onSettings = onSettings,
-        )
-    }
-
-    val detailKey = navigator.currentDestination?.contentKey
-    if (state.empty || detailKey == null) {
-        // With nothing selected, the library owns the whole window so it can use
-        // the mockup's wide home layout instead of a narrow list pane.
-        listContent()
-    } else {
-        ListDetailPaneScaffold(
-            directive = navigator.scaffoldDirective,
-            value = navigator.scaffoldValue,
-            listPane = { AnimatedPane { listContent() } },
-            detailPane = {
-                AnimatedPane {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.TopCenter,
-                    ) {
-                        Box(modifier = Modifier.widthIn(max = 840.dp).fillMaxSize()) {
-                            if (detailKey.startsWith(ARTIST_PREFIX)) {
-                                ArtistScreen(
-                                    artistId = detailKey.removePrefix(ARTIST_PREFIX),
-                                    onTrack = onTrack,
-                                    onBack = { scope.launch { navigator.navigateBack() } },
-                                )
-                            } else {
-                                AlbumScreen(
-                                    albumId = detailKey.removePrefix(ALBUM_PREFIX),
-                                    onTrack = onTrack,
-                                    onBack = { scope.launch { navigator.navigateBack() } },
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-        )
-    }
+    LibraryScreen(
+        state = state,
+        onTrack = onTrack,
+        onArtist = onArtist,
+        onPickFolder = { picker.launch(null) },
+        onSearch = onSearch,
+        onFavorites = onFavorites,
+        onShuffleAll = { container.playTracks(state.tracks, shuffle = true) },
+        onSettings = onSettings,
+    )
 }
-
-private const val ALBUM_PREFIX = "album:"
-private const val ARTIST_PREFIX = "artist:"
 
 @Composable
 fun LibraryScreen(
@@ -280,10 +228,11 @@ private fun CompactLibrary(
     onShuffleAll: () -> Unit,
     onSettings: () -> Unit,
 ) {
+    val bottomOverlay = LocalBottomOverlayPadding.current
     Column(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp + bottomOverlay),
         ) {
             item {
                 LibraryHeader(
@@ -307,9 +256,10 @@ private fun CompactLibrary(
                         height = 272.dp,
                         radius = 32.dp,
                         blobSize = 250.dp,
-                        blobOffset = 60.dp,
+                        blobOffset = 88.dp,
                         cardPadding = 20.dp,
                         titleStyle = portraitCardTitle,
+                        titleMaxWidth = 176.dp,
                         artistStyle = MaterialTheme.typography.titleSmall,
                         playSize = 52.dp,
                         playIcon = 28.dp,
@@ -368,6 +318,7 @@ private fun LandscapeLibrary(
     onShuffleAll: () -> Unit,
     onSettings: () -> Unit,
 ) {
+    val bottomOverlay = LocalBottomOverlayPadding.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -386,7 +337,7 @@ private fun LandscapeLibrary(
         )
         LazyColumn(
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(top = 4.dp),
+            contentPadding = PaddingValues(top = 4.dp, bottom = bottomOverlay),
         ) {
             if (state.isScanning) {
                 item { ScanningRow() }
@@ -401,10 +352,10 @@ private fun LandscapeLibrary(
                         height = 150.dp,
                         radius = 28.dp,
                         blobSize = 156.dp,
-                        blobOffset = 44.dp,
+                        blobOffset = 68.dp,
                         cardPadding = 16.dp,
                         titleStyle = phoneLandscapeCardTitle,
-                        titleMaxWidth = 140.dp,
+                        titleMaxWidth = 116.dp,
                         artistStyle = MaterialTheme.typography.bodyMedium,
                         playSize = 44.dp,
                         playIcon = 24.dp,
@@ -464,6 +415,7 @@ private fun PortraitLibrary(
     onShuffleAll: () -> Unit,
     onSettings: () -> Unit,
 ) {
+    val bottomOverlay = LocalBottomOverlayPadding.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -483,7 +435,7 @@ private fun PortraitLibrary(
         )
         LazyColumn(
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp + bottomOverlay),
         ) {
             if (state.isScanning) {
                 item { ScanningRow() }
@@ -498,10 +450,10 @@ private fun PortraitLibrary(
                         height = 330.dp,
                         radius = 40.dp,
                         blobSize = 320.dp,
-                        blobOffset = 70.dp,
+                        blobOffset = 108.dp,
                         cardPadding = 28.dp,
                         titleStyle = portraitTableCellTitle,
-                        titleMaxWidth = 220.dp,
+                        titleMaxWidth = 200.dp,
                         artistStyle = MaterialTheme.typography.titleMedium,
                         playSize = 60.dp,
                         playIcon = 32.dp,
@@ -563,6 +515,7 @@ private fun ExpandedLibrary(
     onShuffleAll: () -> Unit,
     onSettings: () -> Unit,
 ) {
+    val bottomOverlay = LocalBottomOverlayPadding.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -583,7 +536,7 @@ private fun ExpandedLibrary(
         )
         LazyColumn(
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(top = 16.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = bottomOverlay),
         ) {
             if (state.isScanning) {
                 item { ScanningRow() }
@@ -598,10 +551,10 @@ private fun ExpandedLibrary(
                         height = 236.dp,
                         radius = 36.dp,
                         blobSize = 250.dp,
-                        blobOffset = 64.dp,
+                        blobOffset = 104.dp,
                         cardPadding = 24.dp,
                         titleStyle = tabletCardTitle,
-                        titleMaxWidth = 200.dp,
+                        titleMaxWidth = 176.dp,
                         artistStyle = MaterialTheme.typography.bodyLarge,
                         playSize = 56.dp,
                         playIcon = 30.dp,
@@ -854,7 +807,9 @@ private fun RecentTracksCarousel(
     HorizontalMultiBrowseCarousel(
         state = carouselState,
         preferredItemWidth = preferredItemWidth,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height),
         itemSpacing = itemSpacing,
         contentPadding = contentPadding,
     ) { index ->
@@ -906,7 +861,8 @@ private fun RecentTrackCard(
         // maskModifier keeps their clipped edges rounded instead of straight.
         modifier = Modifier
             .then(maskModifier())
-            .fillMaxSize(),
+            .fillMaxWidth()
+            .height(height),
         shape = RoundedCornerShape(radius),
         color = Color(palette.primaryContainer),
         contentColor = Color(palette.onPrimaryContainer),
@@ -1075,23 +1031,42 @@ private fun ArtistsSheet(
     onArtist: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val sheetState = rememberBottomSheetState(initialValue = SheetValue.Hidden)
+    val scope = rememberCoroutineScope()
     if (!visible) return
-    ModalBottomSheet(onDismissRequest = onDismiss) {
-        LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            items(state.artists, key = { it.id }) { artist ->
-                ListItem(
-                    headlineContent = {
-                        Text(
-                            text = artist.name,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = Spacing.screen, vertical = Spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            itemsIndexed(state.artists, key = { _, artist -> artist.id }) { index, artist ->
+                Surface(
+                    onClick = {
+                        scope.launch {
+                            // Hide animates the sheet away before we unmount it,
+                            // so the detail pane doesn't slide in over an abrupt cut.
+                            sheetState.hide()
+                            onDismiss()
+                            onArtist(artist.id)
+                        }
                     },
-                    modifier = Modifier.clickable {
-                        onDismiss()
-                        onArtist(artist.id)
-                    },
-                )
+                    shape = segmentedItemShape(index, state.artists.size),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = artist.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
+                    )
+                }
             }
         }
     }

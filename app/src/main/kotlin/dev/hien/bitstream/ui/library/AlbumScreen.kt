@@ -14,9 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -32,7 +29,9 @@ import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.BitstreamEmptyState
 import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
+import dev.hien.bitstream.core.designsystem.LocalBottomOverlayPadding
 import dev.hien.bitstream.core.designsystem.Spacing
+import dev.hien.bitstream.core.designsystem.TopBarBackButton
 import dev.hien.bitstream.core.model.Track
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -57,18 +56,20 @@ fun AlbumScreen(
     val title = album?.album?.takeIf { it.isNotBlank() } ?: albumId.substringAfter('|')
     val artist = album?.albumArtist?.takeIf { it.isNotBlank() } ?: album?.artist.orEmpty()
     val artwork = tracks.firstNotNullOfOrNull { it.artworkUri }
+    val bottomOverlay = LocalBottomOverlayPadding.current
 
     Column(modifier = Modifier.fillMaxSize()) {
-        BitstreamLargeHeader(title = title) {
-            if (onBack != null) {
-                IconButton(onClick = onBack) {
-                    Icon(
+        BitstreamLargeHeader(
+            title = if (tracks.isEmpty()) title else "Album",
+            navigationIcon = onBack?.let {
+                {
+                    TopBarBackButton(
+                        onClick = it,
                         painter = painterResource(R.drawable.ic_arrow_back),
-                        contentDescription = "Back",
                     )
                 }
-            }
-        }
+            },
+        )
 
         if (tracks.isEmpty()) {
             BitstreamEmptyState(
@@ -83,7 +84,7 @@ fun AlbumScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .weight(1f),
-                contentPadding = PaddingValues(bottom = Spacing.xxl),
+                contentPadding = PaddingValues(bottom = Spacing.xxl + bottomOverlay),
             ) {
                 item {
                     Row(
@@ -122,13 +123,13 @@ fun AlbumScreen(
                             }
                         }
                     }
-                    HorizontalDivider()
                 }
 
                 itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
                     TrackRow(
                         track = track.copy(title = "${index + 1}. ${track.title}"),
                         onClick = { container.playTracks(tracks, startIndex = index) },
+                        modifier = Modifier.padding(horizontal = Spacing.sm),
                     )
                 }
             }

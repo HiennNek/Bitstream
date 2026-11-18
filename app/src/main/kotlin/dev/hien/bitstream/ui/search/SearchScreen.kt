@@ -5,18 +5,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
@@ -30,6 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,8 +48,9 @@ import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.BitstreamEmptyState
 import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
 import dev.hien.bitstream.core.designsystem.BitstreamSectionHeader
-import dev.hien.bitstream.core.designsystem.Radii
+import dev.hien.bitstream.core.designsystem.LocalBottomOverlayPadding
 import dev.hien.bitstream.core.designsystem.Spacing
+import dev.hien.bitstream.core.designsystem.segmentedItemShape
 import dev.hien.bitstream.ui.library.TrackRow
 
 @Composable
@@ -86,6 +93,8 @@ fun SearchScreen(
     onAlbum: (String) -> Unit = {},
     onArtist: (String) -> Unit = {},
 ) {
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     Column(modifier = Modifier.fillMaxSize()) {
         BitstreamLargeHeader(title = "Search")
 
@@ -94,7 +103,10 @@ fun SearchScreen(
                 SearchBarDefaults.InputField(
                     query = query,
                     onQueryChange = onQueryChange,
-                    onSearch = {},
+                    onSearch = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    },
                     expanded = false,
                     onExpandedChange = {},
                     placeholder = { Text("Tracks, albums, artists") },
@@ -104,10 +116,23 @@ fun SearchScreen(
                             contentDescription = null,
                         )
                     },
+                    trailingIcon = {
+                        if (query.isNotEmpty()) {
+                            IconButton(onClick = { onQueryChange("") }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_close),
+                                    contentDescription = "Clear search",
+                                )
+                            }
+                        }
+                    },
                 )
             },
             expanded = false,
             onExpandedChange = {},
+            colors = SearchBarDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+            ),
             content = {},
             modifier = Modifier
                 .fillMaxWidth()
@@ -149,22 +174,27 @@ private fun SearchResults(
     onAlbum: (String) -> Unit,
     onArtist: (String) -> Unit,
 ) {
+    val bottomOverlay = LocalBottomOverlayPadding.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = Spacing.screen,
             end = Spacing.screen,
-            bottom = Spacing.xxl,
+            bottom = Spacing.xxl + bottomOverlay,
         ),
     ) {
         if (state.albums.isNotEmpty()) {
             item { BitstreamSectionHeader("Albums", modifier = Modifier.padding(vertical = Spacing.sm)) }
-            items(state.albums, key = { "album-${it.id}" }) { album ->
+            itemsIndexed(state.albums, key = { _, item -> "album-${item.id}" }) { index, album ->
+                if (index > 0) Spacer(Modifier.height(2.dp))
                 ListItem(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(Radii.tile))
+                        .clip(segmentedItemShape(index, state.albums.size))
                         .clickable { onAlbum(album.id) },
+                    colors = ListItemDefaults.colors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    ),
                     content = {
                         Text(
                             text = album.title,

@@ -224,7 +224,10 @@ class PlaybackService : MediaSessionService() {
     private fun acquireWakeLock() {
         val lock = wakeLock ?: return
         if (!lock.isHeld) {
-            lock.acquire(MAX_WAKELOCK_MS)
+            // No timeout: the status collector releases on PAUSED/IDLE/ENDED/
+            // ERROR/NO_DAC, and the OS drops it on process death. A timeout here
+            // would expire mid-way through a long session and never be renewed.
+            lock.acquire()
         }
     }
 
@@ -277,7 +280,6 @@ class PlaybackService : MediaSessionService() {
     }
 
     companion object {
-        private const val MAX_WAKELOCK_MS = 4L * 60L * 60L * 1_000L
         private const val DAC_CHANNEL_ID = "bitstream_dac_status"
         private const val DAC_NOTIFICATION_ID = 4201
         const val ACTION_RESUME_PLAYBACK = "dev.hien.bitstream.action.RESUME"

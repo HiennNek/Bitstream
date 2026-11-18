@@ -15,14 +15,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,6 +28,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,8 +39,11 @@ import dev.hien.bitstream.core.designsystem.GoogleSansCode
 import androidx.compose.ui.unit.dp
 import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
 import dev.hien.bitstream.core.designsystem.LabeledValueRow
-import dev.hien.bitstream.core.designsystem.Radii
+import dev.hien.bitstream.core.designsystem.LocalBottomOverlayPadding
+import dev.hien.bitstream.core.designsystem.SegmentedColumn
+import dev.hien.bitstream.core.designsystem.SegmentedItemSurface
 import dev.hien.bitstream.core.designsystem.Spacing
+import dev.hien.bitstream.core.designsystem.TopBarBackButton
 import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.model.PlaybackState
@@ -52,7 +51,9 @@ import dev.hien.bitstream.core.playback.engine.PlaybackError
 import dev.hien.bitstream.core.playback.usb.DacState
 import dev.hien.bitstream.core.playback.usb.SyncType
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 data class DiagnosticsSummary(
     val uacVersion: String,
@@ -154,6 +155,7 @@ fun DiagnosticsScreen(
         )
     }
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var copied by remember { mutableStateOf(false) }
     LaunchedEffect(copied) {
         if (copied) {
@@ -162,20 +164,23 @@ fun DiagnosticsScreen(
         }
     }
 
+    val bottomOverlay = LocalBottomOverlayPadding.current
     Column(
         modifier = Modifier
             .fillMaxSize()
             .testTag("diagnostics_screen"),
     ) {
-        BitstreamLargeHeader(title = "USB Audio Diagnostics") {
-            TextButton(onClick = { container.usbDeviceManager.refresh() }) {
-                Text("Refresh")
-            }
-            IconButton(onClick = onBack) {
-                Icon(
+        BitstreamLargeHeader(
+            title = "USB Audio Diagnostics",
+            navigationIcon = {
+                TopBarBackButton(
+                    onClick = onBack,
                     painter = painterResource(R.drawable.ic_arrow_back),
-                    contentDescription = "Back",
                 )
+            },
+        ) {
+            TextButton(onClick = { scope.launch(Dispatchers.Default) { container.usbDeviceManager.refresh() } }) {
+                Text("Refresh")
             }
         }
         Box(
@@ -188,119 +193,128 @@ fun DiagnosticsScreen(
                 modifier = Modifier
                     .widthIn(max = 840.dp)
                     .fillMaxSize(),
-                contentPadding = PaddingValues(Spacing.screen),
-                verticalArrangement = Arrangement.spacedBy(Spacing.md),
+                contentPadding = PaddingValues(
+                    start = Spacing.screen,
+                    end = Spacing.screen,
+                    top = Spacing.sm,
+                    bottom = Spacing.screen + bottomOverlay,
+                ),
+                verticalArrangement = Arrangement.spacedBy(Spacing.sectionGap),
             ) {
                 if (dacState is DacState.PermissionNeeded) {
                     val needed = dacState as DacState.PermissionNeeded
                     item {
-                        ElevatedCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(Radii.hero),
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = "USB permission required for ${needed.name}",
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Button(onClick = { container.usbDeviceManager.connectByKey(needed.key) }) {
-                                    Text("Grant permission")
-                                }
-                            }
-                        }
-                    }
-                }
-
-                item {
-                    ElevatedCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(Radii.hero),
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(Spacing.lg),
-                            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                        ) {
-                            Text(
-                                text = "Stream & USB Isochronous Telemetry",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            HorizontalDivider()
-                            LabeledValueRow(label = "UAC version", value = summary.uacVersion)
-                            LabeledValueRow(label = "Alt setting", value = summary.altSetting)
-                            LabeledValueRow(label = "Endpoint", value = summary.endpoint)
-                            LabeledValueRow(label = "Sync type", value = summary.syncType)
-                            LabeledValueRow(label = "Subslot / valid bits", value = summary.subslotAndValidBits)
-                            LabeledValueRow(label = "Sample rate", value = summary.sampleRate)
-                            LabeledValueRow(label = "Ring buffer fill", value = summary.ringFill)
-                            LabeledValueRow(label = "URB stats", value = summary.urbStats)
-                            LabeledValueRow(label = "libusb errors", value = summary.libusbErrors)
-                        }
-                    }
-                }
-
-                item {
-                    ElevatedCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(Radii.hero),
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(Spacing.lg),
-                            verticalArrangement = Arrangement.spacedBy(Spacing.sm),
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    text = "Raw Descriptor Dump",
-                                    style = MaterialTheme.typography.titleMedium,
-                                )
-                                TextButton(
-                                    enabled = summary.descriptorDump.isNotEmpty(),
-                                    onClick = {
-                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
-                                            as ClipboardManager
-                                        clipboard.setPrimaryClip(
-                                            ClipData.newPlainText(
-                                                "USB descriptor",
-                                                summary.descriptorDump,
-                                            ),
-                                        )
-                                        copied = true
-                                    },
-                                    modifier = Modifier.testTag("copy_descriptor_button"),
-                                ) {
-                                    Text(if (copied) "Copied" else "Copy descriptor")
-                                }
-                            }
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                                shape = MaterialTheme.shapes.medium,
-                                modifier = Modifier.fillMaxWidth(),
-                            ) {
-                                SelectionContainer {
-                                    Text(
-                                        text = summary.descriptorDump.ifEmpty {
-                                            "No USB DAC descriptor available."
-                                        },
+                        SegmentedColumn(
+                            content = listOf {
+                                SegmentedItemSurface {
+                                    Row(
                                         modifier = Modifier
-                                            .horizontalScroll(rememberScrollState())
-                                            .padding(Spacing.md),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        fontFamily = GoogleSansCode,
-                                        softWrap = false,
+                                            .fillMaxWidth()
+                                            .padding(Spacing.lg),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = "USB permission required for ${needed.name}",
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        Button(onClick = { scope.launch(Dispatchers.Default) { container.usbDeviceManager.connectByKey(needed.key) } }) {
+                                            Text("Grant permission")
+                                        }
+                                    }
+                                }
+                            },
+                        )
+                    }
+                }
+
+                item {
+                    val rows = listOf(
+                        "UAC version" to summary.uacVersion,
+                        "Alt setting" to summary.altSetting,
+                        "Endpoint" to summary.endpoint,
+                        "Sync type" to summary.syncType,
+                        "Subslot / valid bits" to summary.subslotAndValidBits,
+                        "Sample rate" to summary.sampleRate,
+                        "Ring buffer fill" to summary.ringFill,
+                        "URB stats" to summary.urbStats,
+                        "libusb errors" to summary.libusbErrors,
+                    )
+                    SegmentedColumn(
+                        title = "Stream & USB Isochronous Telemetry",
+                        content = rows.map { (label, value) ->
+                            @Composable {
+                                SegmentedItemSurface {
+                                    LabeledValueRow(
+                                        label = label,
+                                        value = value,
+                                        modifier = Modifier.padding(horizontal = Spacing.lg, vertical = Spacing.md),
                                     )
                                 }
                             }
-                        }
-                    }
+                        },
+                    )
+                }
+
+                item {
+                    SegmentedColumn(
+                        title = "Raw Descriptor Dump",
+                        content = listOf {
+                            SegmentedItemSurface {
+                                Column(
+                                    modifier = Modifier.padding(Spacing.lg),
+                                    verticalArrangement = Arrangement.spacedBy(Spacing.sm),
+                                ) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Text(
+                                            text = "Hex dump",
+                                            style = MaterialTheme.typography.titleMedium,
+                                        )
+                                        TextButton(
+                                            enabled = summary.descriptorDump.isNotEmpty(),
+                                            onClick = {
+                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE)
+                                                    as ClipboardManager
+                                                clipboard.setPrimaryClip(
+                                                    ClipData.newPlainText(
+                                                        "USB descriptor",
+                                                        summary.descriptorDump,
+                                                    ),
+                                                )
+                                                copied = true
+                                            },
+                                            modifier = Modifier.testTag("copy_descriptor_button"),
+                                        ) {
+                                            Text(if (copied) "Copied" else "Copy descriptor")
+                                        }
+                                    }
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                        shape = MaterialTheme.shapes.medium,
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        SelectionContainer {
+                                            Text(
+                                                text = summary.descriptorDump.ifEmpty {
+                                                    "No USB DAC descriptor available."
+                                                },
+                                                modifier = Modifier
+                                                    .horizontalScroll(rememberScrollState())
+                                                    .padding(Spacing.md),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                fontFamily = GoogleSansCode,
+                                                softWrap = false,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                    )
                 }
             }
         }

@@ -191,7 +191,7 @@ class PlaybackEngine(
                     queueSize = queue.size,
                     shuffle = queue.shuffle,
                     repeat = queue.repeat,
-                    integrity = initialIntegrity(current, resumeFrame),
+                    integrity = initialIntegrity(current),
                 )
             }
         }
@@ -481,7 +481,7 @@ class PlaybackEngine(
                 queueSize = queue.size,
                 shuffle = queue.shuffle,
                 repeat = queue.repeat,
-                integrity = initialIntegrity(track, startFrame),
+                integrity = initialIntegrity(track),
             )
         }
 
@@ -607,7 +607,7 @@ class PlaybackEngine(
                                 durationMs = nextTrack.durationMs,
                                 underruns = 0L,
                                 queueSize = queue.size,
-                                integrity = initialIntegrity(nextTrack, startFrame = 0L),
+                                integrity = initialIntegrity(nextTrack),
                             )
                         }
                         return
@@ -700,12 +700,8 @@ class PlaybackEngine(
             first.channels > 0 &&
             first == second
 
-    private fun initialIntegrity(track: Track, startFrame: Long): Integrity =
-        when {
-            !track.hasMd5 -> Integrity.UNAVAILABLE
-            startFrame > 0L -> Integrity.PARTIAL
-            else -> Integrity.PARTIAL
-        }
+    private fun initialIntegrity(track: Track): Integrity =
+        if (track.hasMd5) Integrity.PARTIAL else Integrity.UNAVAILABLE
 
     private fun syncQueueFlows() {
         _queueItems.value = queue.items

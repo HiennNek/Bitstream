@@ -2,10 +2,12 @@ package dev.hien.bitstream.core.designsystem
 
 import android.os.Build
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
@@ -14,6 +16,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -77,9 +80,9 @@ private val DeepTealDark = darkColorScheme(
 )
 
 /**
- * Material 3 Expressive theme. When [albumColors] is on, the scheme follows the
- * playing artwork's dominant hue, then the Android wallpaper scheme, then the
- * static deep-teal brand fallback.
+ * Material 3 Expressive theme. When [albumColors] is on and a track is playing,
+ * the scheme follows the artwork's dominant hue; when off (or idle), it uses the
+ * Android wallpaper scheme on API 31+, falling back to static deep teal on API 29–30.
  */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -90,8 +93,8 @@ fun BitstreamTheme(
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
-    val wallpaperScheme = remember(context, darkTheme, albumColors) {
-        if (albumColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    val wallpaperScheme = remember(context, darkTheme) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         } else {
             null
@@ -112,8 +115,16 @@ fun BitstreamTheme(
         colorScheme = colorScheme,
         typography = BitstreamTypography,
         motionScheme = MotionScheme.expressive(),
-        content = content,
-    )
+    ) {
+        // MaterialTheme does not set LocalContentColor (it defaults to Color.Black),
+        // so without this every Text/Icon that has no explicit color and no
+        // Surface ancestor renders black — invisible in dark mode. Provide the
+        // theme's onSurface as the ambient text color; any Surface or Material
+        // component still overrides it with its own content color.
+        CompositionLocalProvider(LocalContentColor provides colorScheme.onSurface) {
+            content()
+        }
+    }
 }
 
 private fun TrackPalette.toColorScheme(dark: Boolean): ColorScheme {
@@ -146,86 +157,44 @@ private fun TrackPalette.toColorScheme(dark: Boolean): ColorScheme {
     )
 }
 
-/** Cross-fades the roles that paint large areas when the album hue changes. */
+/**
+ * Spring-driven color transitions (modeled on KernelSU's `ColorScheme.animateAsState`):
+ * retargets smoothly on rapid track skips instead of restarting a fixed tween from zero
+ * velocity, and covers every active role so no surface or outline snaps on frame 1.
+ */
 @Composable
 private fun rememberAnimatedColorScheme(target: ColorScheme): ColorScheme {
-    val spec = tween<Color>(durationMillis = 500)
+    val spec = spring<Color>(stiffness = Spring.StiffnessLow)
+    @Composable
+    fun animate(color: Color, label: String): Color =
+        animateColorAsState(color, spec, label = label).value
+
     return target.copy(
-        primary = animateColorAsState(target.primary, spec, label = "primary").value,
-        onPrimary = animateColorAsState(target.onPrimary, spec, label = "onPrimary").value,
-        primaryContainer = animateColorAsState(
-            target.primaryContainer,
-            spec,
-            label = "primaryContainer",
-        ).value,
-        onPrimaryContainer = animateColorAsState(
-            target.onPrimaryContainer,
-            spec,
-            label = "onPrimaryContainer",
-        ).value,
-        secondaryContainer = animateColorAsState(
-            target.secondaryContainer,
-            spec,
-            label = "secondaryContainer",
-        ).value,
-        onSecondaryContainer = animateColorAsState(
-            target.onSecondaryContainer,
-            spec,
-            label = "onSecondaryContainer",
-        ).value,
-        tertiaryContainer = animateColorAsState(
-            target.tertiaryContainer,
-            spec,
-            label = "tertiaryContainer",
-        ).value,
-        onTertiaryContainer = animateColorAsState(
-            target.onTertiaryContainer,
-            spec,
-            label = "onTertiaryContainer",
-        ).value,
-        surface = animateColorAsState(target.surface, spec, label = "surface").value,
-        onSurface = animateColorAsState(target.onSurface, spec, label = "onSurface").value,
-        background = animateColorAsState(target.background, spec, label = "background").value,
-        onBackground = animateColorAsState(
-            target.onBackground,
-            spec,
-            label = "onBackground",
-        ).value,
-        surfaceVariant = animateColorAsState(
-            target.surfaceVariant,
-            spec,
-            label = "surfaceVariant",
-        ).value,
-        surfaceContainerLow = animateColorAsState(
-            target.surfaceContainerLow,
-            spec,
-            label = "surfaceContainerLow",
-        ).value,
-        surfaceContainer = animateColorAsState(
-            target.surfaceContainer,
-            spec,
-            label = "surfaceContainer",
-        ).value,
-        surfaceContainerHigh = animateColorAsState(
-            target.surfaceContainerHigh,
-            spec,
-            label = "surfaceContainerHigh",
-        ).value,
-        surfaceContainerHighest = animateColorAsState(
-            target.surfaceContainerHighest,
-            spec,
-            label = "surfaceContainerHighest",
-        ).value,
-        onSurfaceVariant = animateColorAsState(
-            target.onSurfaceVariant,
-            spec,
-            label = "onSurfaceVariant",
-        ).value,
-        outlineVariant = animateColorAsState(
-            target.outlineVariant,
-            spec,
-            label = "outlineVariant",
-        ).value,
+        primary = animate(target.primary, "primary"),
+        onPrimary = animate(target.onPrimary, "onPrimary"),
+        primaryContainer = animate(target.primaryContainer, "primaryContainer"),
+        onPrimaryContainer = animate(target.onPrimaryContainer, "onPrimaryContainer"),
+        secondary = animate(target.secondary, "secondary"),
+        onSecondary = animate(target.onSecondary, "onSecondary"),
+        secondaryContainer = animate(target.secondaryContainer, "secondaryContainer"),
+        onSecondaryContainer = animate(target.onSecondaryContainer, "onSecondaryContainer"),
+        tertiary = animate(target.tertiary, "tertiary"),
+        onTertiary = animate(target.onTertiary, "onTertiary"),
+        tertiaryContainer = animate(target.tertiaryContainer, "tertiaryContainer"),
+        onTertiaryContainer = animate(target.onTertiaryContainer, "onTertiaryContainer"),
+        surface = animate(target.surface, "surface"),
+        onSurface = animate(target.onSurface, "onSurface"),
+        background = animate(target.background, "background"),
+        onBackground = animate(target.onBackground, "onBackground"),
+        surfaceVariant = animate(target.surfaceVariant, "surfaceVariant"),
+        surfaceContainerLowest = animate(target.surfaceContainerLowest, "surfaceContainerLowest"),
+        surfaceContainerLow = animate(target.surfaceContainerLow, "surfaceContainerLow"),
+        surfaceContainer = animate(target.surfaceContainer, "surfaceContainer"),
+        surfaceContainerHigh = animate(target.surfaceContainerHigh, "surfaceContainerHigh"),
+        surfaceContainerHighest = animate(target.surfaceContainerHighest, "surfaceContainerHighest"),
+        onSurfaceVariant = animate(target.onSurfaceVariant, "onSurfaceVariant"),
+        outline = animate(target.outline, "outline"),
+        outlineVariant = animate(target.outlineVariant, "outlineVariant"),
     )
 }
 

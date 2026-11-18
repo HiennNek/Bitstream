@@ -51,8 +51,16 @@ class ScanWorker(
 
             var indexed = 0
             val scannedIds = mutableSetOf<Long>()
+            var folderFailed = false
             for (treeUri in folders) {
-                val root = tree.root(treeUri) ?: continue
+                val root = tree.root(treeUri)
+                if (root == null) {
+                    // The folder is temporarily unavailable (storage unmounted or
+                    // SAF access briefly lost). Pruning now would delete its tracks
+                    // and cascade-delete their favorites, playlists, and history.
+                    folderFailed = true
+                    continue
+                }
                 val result = scanner.scan(
                     roots = listOf(root),
                     existing = existingTracks,
@@ -70,7 +78,7 @@ class ScanWorker(
                 )
             }
 
-            if (explicit == null) {
+            if (explicit == null && !folderFailed) {
                 val existingIds = database.trackDao().observeTracks().first().map { it.id }
                 val removedIds = existingIds.filter { it !in scannedIds }
                 database.trackDao().deleteByIds(removedIds)

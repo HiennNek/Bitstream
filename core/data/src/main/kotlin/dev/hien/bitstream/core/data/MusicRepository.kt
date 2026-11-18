@@ -63,15 +63,19 @@ class RoomMusicRepository(
 
     override fun search(query: String): Flow<List<Track>> =
         trackDao.search(query).map { entities -> entities.map { it.toModel() } }
+            .flowOn(Dispatchers.Default)
 
     override val favoriteTracks: Flow<List<Track>> =
         favoriteDao.observeTracks().map { entities -> entities.map { it.toModel() } }
+            .flowOn(Dispatchers.Default)
 
     override val favoriteIds: Flow<Set<Long>> =
         favoriteDao.observeIds().map { it.toSet() }
+            .flowOn(Dispatchers.Default)
 
     override val recentTracks: Flow<List<Track>> =
         playHistoryDao.observeTracks(MAX_RECENT_TRACKS).map { entities -> entities.map { it.toModel() } }
+            .flowOn(Dispatchers.Default)
 
     override suspend fun tracksByIds(ids: List<Long>): List<Track> =
         trackDao.tracksByIds(ids).map { it.toModel() }

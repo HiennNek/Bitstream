@@ -1,22 +1,25 @@
 package dev.hien.bitstream.ui.library
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,7 +32,10 @@ import dev.hien.bitstream.LocalAppContainer
 import dev.hien.bitstream.R
 import dev.hien.bitstream.core.designsystem.BitstreamEmptyState
 import dev.hien.bitstream.core.designsystem.BitstreamLargeHeader
+import dev.hien.bitstream.core.designsystem.LocalBottomOverlayPadding
 import dev.hien.bitstream.core.designsystem.Spacing
+import dev.hien.bitstream.core.designsystem.TopBarBackButton
+import dev.hien.bitstream.core.designsystem.segmentedItemShape
 
 @Composable
 fun FavoritesRoute(
@@ -59,15 +65,17 @@ fun FavoritesScreen(
     onToggleFavorite: (Long) -> Unit,
     onBack: () -> Unit,
 ) {
+    val bottomOverlay = LocalBottomOverlayPadding.current
     Column(modifier = Modifier.fillMaxSize()) {
-        BitstreamLargeHeader(title = "Favorites") {
-            IconButton(onClick = onBack) {
-                Icon(
+        BitstreamLargeHeader(
+            title = "Favorites",
+            navigationIcon = {
+                TopBarBackButton(
+                    onClick = onBack,
                     painter = painterResource(R.drawable.ic_arrow_back),
-                    contentDescription = "Back",
                 )
-            }
-        }
+            },
+        )
 
         if (state.tracks.isEmpty()) {
             BitstreamEmptyState(
@@ -79,27 +87,31 @@ fun FavoritesScreen(
                     .padding(Spacing.xxxl),
             )
         } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(state.tracks, key = { it.id }) { track ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = Spacing.screen,
+                    end = Spacing.screen,
+                    top = Spacing.sm,
+                    bottom = Spacing.xxl + bottomOverlay,
+                ),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                itemsIndexed(state.tracks, key = { _, track -> track.id }) { index, track ->
                     val favorite = track.id in state.favoriteIds
                     ListItem(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(segmentedItemShape(index, state.tracks.size))
                             .clickable { onTrack(track.id) }
-                            .padding(horizontal = Spacing.sm)
                             .testTag("favorite_${track.id}"),
+                        colors = ListItemDefaults.colors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        ),
                         leadingContent = {
                             AlbumArtwork(
                                 uri = track.artworkUri,
                                 modifier = Modifier.size(48.dp),
-                            )
-                        },
-                        headlineContent = {
-                            Text(
-                                text = track.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
                             )
                         },
                         supportingContent = {
@@ -130,6 +142,14 @@ fun FavoritesScreen(
                                     },
                                 )
                             }
+                        },
+                        content = {
+                            Text(
+                                text = track.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         },
                     )
                 }

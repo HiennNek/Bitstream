@@ -69,6 +69,9 @@ fun CoverArt(
     )
 }
 
+private var lastSpinSeed = Long.MIN_VALUE
+private var lastSpinAngle = 0f
+
 /**
  * Real artwork when the track has it, otherwise a generated cookie placeholder.
  * The cookie rotates only while [spinning] and when system animations are on.
@@ -84,15 +87,22 @@ fun CoverArt(
     hue: Int? = null,
 ) {
     val motionEnabled = rememberMotionEnabled()
-    // Keep the angle across pauses: cancelling animateTo freezes it where it is.
-    val angle = remember { Animatable(0f) }
-    LaunchedEffect(spinning, motionEnabled) {
+    // Keep the angle across pauses and across the MiniPlayerBar <-> NowPlaying
+    // shared-element handoff: when the same track's spinning cover mounts in the
+    // new scope, seed it with the last frame's angle so it never snaps back to 0°.
+    val angle = remember(seed) {
+        Animatable(if (spinning && seed == lastSpinSeed) lastSpinAngle else 0f)
+    }
+    LaunchedEffect(seed, spinning, motionEnabled) {
         if (!spinning || !motionEnabled) return@LaunchedEffect
         while (true) {
             angle.animateTo(
                 targetValue = angle.value + 360f,
                 animationSpec = tween(40_000, easing = LinearEasing),
-            )
+            ) {
+                lastSpinSeed = seed
+                lastSpinAngle = value % 360f
+            }
         }
     }
     CookieCover(

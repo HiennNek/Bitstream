@@ -123,15 +123,20 @@ fun detailPopEnter(
  * M3 back: the top screen shrinks to 0.9 and slides toward [exitDirection]
  * (+1 = trailing end, -1 = leading) — the depth collapse of the system
  * predictive back. Exits must not bounce: [slide] is expected critically damped
- * (dampingRatio = 1f), unlike the underdamped enter spring.
+ * (dampingRatio = 1f), unlike the underdamped enter spring. The fade is not
+ * optional: NavHost keeps the exiting detail on top of the screen beneath, so
+ * without it the opaque leaving screen lingers ("sticks") until the spring
+ * finally carries it away.
  */
 fun detailPopExit(
     slide: FiniteAnimationSpec<IntOffset>,
     spatial: FiniteAnimationSpec<Float>,
+    effects: FiniteAnimationSpec<Float>,
     exitDirection: Int = 1,
 ): ExitTransition =
     slideOutHorizontally(animationSpec = slide, targetOffsetX = { it * exitDirection }) +
-        scaleOut(animationSpec = spatial, targetScale = 0.9f)
+        scaleOut(animationSpec = spatial, targetScale = 0.9f) +
+        fadeOut(effects)
 
 /**
  * Canonical `depth/rate` label for a FLAC source, e.g. `24/192` or `16/44.1`.

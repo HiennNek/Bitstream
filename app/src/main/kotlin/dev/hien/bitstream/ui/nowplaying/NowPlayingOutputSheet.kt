@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.hien.bitstream.core.designsystem.Radii
+import dev.hien.bitstream.core.designsystem.SegmentedColumn
+import dev.hien.bitstream.core.designsystem.SegmentedSwitchRow
 import dev.hien.bitstream.core.designsystem.integrityLabel
 import dev.hien.bitstream.core.designsystem.pathLabel
 import dev.hien.bitstream.core.model.BitPerfectPath
@@ -83,30 +85,18 @@ fun OutputSheet(
                 text = "Path: ${pathLabel(state.path, state.volume)} · Integrity: ${integrityLabel(state.integrity, state.volume)} · ${state.underruns} underruns",
                 style = MaterialTheme.typography.bodyMedium,
             )
-            HorizontalDivider()
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Software volume (not bit-perfect)",
-                        style = MaterialTheme.typography.bodyLarge,
+            SegmentedColumn(
+                content = listOf {
+                    SegmentedSwitchRow(
+                        title = "Software volume (not bit-perfect)",
+                        summary = "Applies digital attenuation before USB output and demotes the Bit-perfect badge.",
+                        checked = state.volume is VolumeState.Software ||
+                            state.path == BitPerfectPath.SOFTWARE_VOLUME,
+                        onCheckedChange = onSoftwareVolume,
+                        switchModifier = Modifier.testTag("software_volume_switch"),
                     )
-                    Text(
-                        text = "Applies digital attenuation before USB output and demotes the Bit-perfect badge.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                Switch(
-                    checked = state.volume is VolumeState.Software ||
-                        state.path == BitPerfectPath.SOFTWARE_VOLUME,
-                    onCheckedChange = onSoftwareVolume,
-                    modifier = Modifier.testTag("software_volume_switch"),
-                )
-            }
+                },
+            )
             VolumeSection(
                 volume = state.volume,
                 onHardwareVolume = onHardwareVolume,

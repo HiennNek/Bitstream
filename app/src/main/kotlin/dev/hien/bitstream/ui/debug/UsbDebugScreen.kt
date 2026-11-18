@@ -62,25 +62,28 @@ import dev.hien.bitstream.core.playback.usb.UacFormat
 import dev.hien.bitstream.core.playback.usb.UsbDeviceHandle
 import dev.hien.bitstream.core.playback.usb.VolumeRange
 import java.util.Locale
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun UsbDebugRoute(onBack: () -> Unit) {
     val manager = LocalAppContainer.current.usbDeviceManager
     val state by manager.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        manager.refresh()
+        withContext(Dispatchers.Default) { manager.refresh() }
     }
 
     UsbDebugScreen(
         state = state,
         devices = manager.devices(),
-        onConnect = manager::connect,
-        onConnectByKey = manager::connectByKey,
-        onRefresh = manager::refresh,
+        onConnect = { scope.launch(Dispatchers.Default) { manager.connect(it) } },
+        onConnectByKey = { scope.launch(Dispatchers.Default) { manager.connectByKey(it) } },
+        onRefresh = { scope.launch(Dispatchers.Default) { manager.refresh() } },
         onBack = onBack,
     )
 }

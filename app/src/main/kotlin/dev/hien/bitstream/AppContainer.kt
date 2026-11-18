@@ -207,6 +207,9 @@ class AppContainer(context: Context) {
 
     fun playTrack(trackId: Long) {
         appScope.launch {
+            // shortcut: reloads and maps the whole library per tap. The queue IS
+            // the full ordered list, so the full load is required; the entity ->
+            // model map already runs off the main thread (flowOn Default).
             val allTracks = musicRepository.tracks.first()
             if (allTracks.isEmpty()) return@launch
             val startIndex = allTracks.indexOfFirst { it.id == trackId }.coerceAtLeast(0)
